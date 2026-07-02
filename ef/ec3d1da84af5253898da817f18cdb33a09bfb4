@@ -1,0 +1,21 @@
+.github/workflows/deploy.yml
+  s_25ed0ee9b32026::t_afd7867e2416a5 1-48
+vite.config.ts
+  s_25ed0ee9b32026::t_d43f24891f5adb 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "efec3d1da84af5253898da817f18cdb33a09bfb4",
+  "prompts": {},
+  "sessions": {
+    "s_25ed0ee9b32026": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e6f24c-8967-4514-9d02-b40af9b5c02b",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "labautista_melisource <laydi.bautista@mercadolibre.com.co>"
+    }
+  }
+}
