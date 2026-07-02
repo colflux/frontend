@@ -1,0 +1,19 @@
+.gitignore
+  s_25ed0ee9b32026::t_0b5d47aeca5209 1-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "7ceeec7d455b16153ec2304c11b99ace31997a22",
+  "prompts": {},
+  "sessions": {
+    "s_25ed0ee9b32026": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e6f24c-8967-4514-9d02-b40af9b5c02b",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "labautista_melisource <laydi.bautista@mercadolibre.com.co>"
+    }
+  }
+}
