@@ -1,0 +1,24 @@
+services:
+  # Desarrollo local con hot reload
+  dev:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_USE_MOCK=true
+      - VITE_MAP_STYLE=https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json
+    command: sh -c "npm install && npm run dev"
+    profiles: [dev]
+
+  # Producción con Nginx (imagen ~20MB)
+  prod:
+    build:
+      context: .
+      target: production
+    ports:
+      - "8080:80"
+    profiles: [prod]
