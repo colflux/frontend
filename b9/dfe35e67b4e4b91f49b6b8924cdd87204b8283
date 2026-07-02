@@ -1,0 +1,20 @@
+.github/workflows/deploy.yml
+  s_25ed0ee9b32026::t_0e64d683d5fffd 27-29
+  s_25ed0ee9b32026::t_f1a477d526eee8 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b9dfe35e67b4e4b91f49b6b8924cdd87204b8283",
+  "prompts": {},
+  "sessions": {
+    "s_25ed0ee9b32026": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e6f24c-8967-4514-9d02-b40af9b5c02b",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "labautista_melisource <laydi.bautista@mercadolibre.com.co>"
+    }
+  }
+}
