@@ -1,0 +1,19 @@
+.npmrc
+  s_25ed0ee9b32026::t_de3a0ff38d6ce8 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "3d0c31d9aa900c5e40e02574e7d354dcdac60df4",
+  "prompts": {},
+  "sessions": {
+    "s_25ed0ee9b32026": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e6f24c-8967-4514-9d02-b40af9b5c02b",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "labautista_melisource <laydi.bautista@mercadolibre.com.co>"
+    }
+  }
+}
