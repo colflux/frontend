@@ -44,6 +44,8 @@ function collectCoords(geometry: GeoResumenFeature['geometry'], out: number[][])
     geometry.coordinates.forEach((ring) => ring.forEach((c) => out.push(c)))
   } else if (geometry.type === 'MultiPolygon') {
     geometry.coordinates.forEach((poly) => poly.forEach((ring) => ring.forEach((c) => out.push(c))))
+  } else if (geometry.type === 'Point') {
+    out.push(geometry.coordinates)
   }
 }
 
