@@ -16,7 +16,7 @@ export function Home() {
         <div className="max-w-6xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-12 items-center">
           <div>
             <h1 className="text-4xl md:text-5xl font-bold text-fg leading-tight">
-              Conectamos datos, naturaleza y comunidades para un futuro sostenible
+              Sistema Integrado de Observación y Cuantificación de Carbono en Colombia
             </h1>
             <p className="mt-5 text-fg-muted text-lg leading-relaxed">
               Observa, mide y entiende el carbono en páramos y humedales de Colombia.
