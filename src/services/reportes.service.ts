@@ -7,8 +7,11 @@ import type {
   MomTendenciaResponse,
 } from '@/types'
 
-const REPORTES_API_BASE =
-  import.meta.env.VITE_REPORTES_API_BASE_URL ?? 'http://localhost:8000/api/reportes'
+// Relativa por defecto: en producción nginx enruta /api/ al backend en el
+// mismo origen. En desarrollo (docker-compose --profile dev), el servicio
+// "dev" ya pasa VITE_REPORTES_API_BASE_URL absoluta (localhost:8000) por su
+// propio environment:, así que este fallback nunca se usa ahí.
+const REPORTES_API_BASE = import.meta.env.VITE_REPORTES_API_BASE_URL ?? '/api/reportes'
 
 export const reportesService = {
   getBiomasaPorTaxon: async (

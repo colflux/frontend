@@ -23,6 +23,7 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         VITE_GEO_API_BASE_URL: ${VITE_GEO_API_BASE_URL:-/api/geo}
+        VITE_REPORTES_API_BASE_URL: ${VITE_REPORTES_API_BASE_URL:-/api/reportes}
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8001}
         VITE_MAP_STYLE: ${VITE_MAP_STYLE:-https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json}
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
