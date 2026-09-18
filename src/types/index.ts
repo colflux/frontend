@@ -158,6 +158,7 @@ export interface GeoResumenProperties {
 export type GeoResumenGeometry =
   | { type: 'Polygon'; coordinates: number[][][] }
   | { type: 'MultiPolygon'; coordinates: number[][][][] }
+  | { type: 'Point'; coordinates: [number, number] }
 
 export interface GeoResumenFeature {
   type: 'Feature'
@@ -172,12 +173,112 @@ export interface GeoResumenFeatureCollection {
 
 export interface GeoResumenFilters {
   gas?: GasType
+  anio?: number
   desde?: string
   hasta?: string
   proyecto?: number
   departamento?: number
   municipio?: number
   vereda?: number
+}
+
+// ── resumen categórico no geográfico (/api/geo/resumen-categorico/) ─
+
+export type DimensionCategorica =
+  | 'proyecto'
+  | 'ecosistema'
+  | 'estado_conservacion'
+  | 'analizador'
+  | 'condicion_luz'
+
+export interface ResumenCategoricoItem {
+  id: number | string
+  nombre: string
+  total_muestras: number
+  promedio: number | null
+  minimo: number | null
+  maximo: number | null
+  rango_fechas: RangoFechas
+  ultima_medicion: UltimaMedicionCO2 | null
+}
+
+export interface ResumenCategoricoResponse {
+  dimension: DimensionCategorica
+  resultados: ResumenCategoricoItem[]
+}
+
+export interface ResumenCategoricoFilters extends GeoResumenFilters {
+  region?: number
+}
+
+// ── tendencia de instalación de unidades de muestreo (/api/geo/tendencia-instalacion/) ─
+
+export type Agrupacion = 'mes' | 'anio'
+
+export interface TendenciaInstalacionPunto {
+  periodo: string
+  total: number
+}
+
+export interface TendenciaInstalacionResponse {
+  agrupar: Agrupacion
+  resultados: TendenciaInstalacionPunto[]
+}
+
+// ── biomasa por taxón y producción (/api/reportes/biomasa/) ─────────
+
+export type DimensionBiomasa = 'familia' | 'genero' | 'especie'
+
+export interface BiomasaTaxonItem {
+  nombre: string
+  total_individuos: number
+  dap_promedio_cm: number | null
+  altura_promedio_m: number | null
+}
+
+export interface BiomasaTaxonResponse {
+  dimension: DimensionBiomasa
+  metrica: 'conteo_individuos'
+  resultados: BiomasaTaxonItem[]
+}
+
+export interface BiomasaProduccionPunto {
+  fecha: string
+  prod_biomasa_g: number | null
+  prom_tonc_ha: number | null
+  sitio_id: number | null
+  sitio_nombre: string | null
+  departamento: string | null
+}
+
+export interface BiomasaProduccionResponse {
+  count: number
+  resultados: BiomasaProduccionPunto[]
+}
+
+// ── COS por rango de profundidad (/api/reportes/cos/) ───────────────
+
+export interface CosProfundidadItem {
+  rango_profundidad: string
+  carbono_pct_promedio: number
+  total_muestras: number
+}
+
+export interface CosProfundidadResponse {
+  resultados: CosProfundidadItem[]
+}
+
+// ── MOM: tendencia de carbono en hojarasca (/api/reportes/mom/) ─────
+
+export interface MomTendenciaPunto {
+  periodo: string
+  carbono_hojarasca_g_m2_promedio: string | number
+  total_muestras: number
+}
+
+export interface MomTendenciaResponse {
+  agrupar: Agrupacion
+  resultados: MomTendenciaPunto[]
 }
 
 // ── reglas de autollenado (/api/reglas-autollenado/) ────────────────

@@ -4,6 +4,10 @@ export const GAS_COLORS: Record<string, string> = {
   N2O: '#57270F',
 }
 
+// Paleta general para gráficas categóricas (torta/barras) sin un color de
+// dominio propio (proyecto, ecosistema, estado de conservación, …).
+export const PIE_COLORS = ['#198A77', '#739E5B', '#F2B91B', '#DF5B26', '#57270F', '#94a3b8']
+
 export const GAS_LABELS: Record<string, string> = {
   CO2: 'CO₂ — Dióxido de carbono',
   CH4: 'CH₄ — Metano',

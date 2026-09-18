@@ -10,7 +10,8 @@ services:
       - "3000:3000"
     environment:
       - VITE_API_BASE_URL=http://localhost:8000/api
-      - VITE_GEO_API_URL=http://localhost:8000/api/geo/sitios/
+      - VITE_GEO_API_BASE_URL=http://localhost:8000/api/geo
+      - VITE_REPORTES_API_BASE_URL=http://localhost:8000/api/reportes
     command: sh -c "npm install && npm run dev"
     profiles: [dev]
 

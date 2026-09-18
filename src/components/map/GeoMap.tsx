@@ -44,6 +44,7 @@ const COLOMBIA_CENTER: [number, number] = [-74.297, 4.571]
 const RESUMEN_SOURCE_ID = 'resumen-choropleth'
 const RESUMEN_FILL_LAYER = 'resumen-fill'
 const RESUMEN_OUTLINE_LAYER = 'resumen-outline'
+const RESUMEN_CIRCLE_LAYER = 'resumen-circle'
 
 interface Props {
   onSelectSitio?: (sitio: SitioFeature) => void
@@ -73,15 +74,18 @@ export function GeoMap({ onSelectSitio }: Props) {
 
   // El nivel mostrado en el mapa es el siguiente nivel hijo del último
   // elegido: sin departamento se ven departamentos, con departamento (sin
-  // municipio) se ven sus municipios, etc.
-  const nivel: GeoNivel = departamento == null ? 'departamento' : municipio == null ? 'municipio' : 'vereda'
+  // municipio) se ven sus municipios, etc. — hasta sitio (puntos), que es
+  // el nivel hoja: clicar un sitio abre su detalle en vez de seguir drill-down.
+  const nivel: GeoNivel =
+    departamento == null ? 'departamento' : municipio == null ? 'municipio' : vereda == null ? 'vereda' : 'sitio'
 
   const resumenFilters = useMemo<GeoResumenFilters>(() => {
     const f = buildGeoResumenBaseFilters(filters)
     if (departamento) f.departamento = departamento.id
     if (municipio) f.municipio = municipio.id
+    if (vereda) f.vereda = vereda.id
     return f
-  }, [filters, departamento, municipio])
+  }, [filters, departamento, municipio, vereda])
 
   const { data: resumenData } = useResumenGeo(nivel, resumenFilters, mapViewMode === 'regiones')
 
@@ -91,10 +95,14 @@ export function GeoMap({ onSelectSitio }: Props) {
   const metricRef = useRef(metric)
   const mapViewModeRef = useRef(mapViewMode)
   const nivelRef = useRef(nivel)
+  const sitiosRef = useRef(sitios)
+  const onSelectSitioRef = useRef(onSelectSitio)
   resumenDataRef.current = resumenData
   metricRef.current = metric
   mapViewModeRef.current = mapViewMode
   nivelRef.current = nivel
+  sitiosRef.current = sitios
+  onSelectSitioRef.current = onSelectSitio
 
   // Initialize map once
   useEffect(() => {
@@ -112,7 +120,7 @@ export function GeoMap({ onSelectSitio }: Props) {
     mapRef.current.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left')
     mapRef.current.addControl(new maplibregl.ScaleControl(), 'bottom-left')
 
-    mapRef.current.on('click', RESUMEN_FILL_LAYER, (e) => {
+    const handleResumenClick = (e: maplibregl.MapLayerMouseEvent) => {
       const feature = e.features?.[0] as unknown as GeoResumenFeature | undefined
       if (!feature) return
       const p = feature.properties
@@ -123,10 +131,15 @@ export function GeoMap({ onSelectSitio }: Props) {
         useAppStore.getState().setMunicipio(entity)
       } else if (nivelRef.current === 'vereda') {
         useAppStore.getState().setVereda(entity)
+      } else if (nivelRef.current === 'sitio') {
+        // Sitio es el nivel hoja: no hay drill-down más profundo, se abre
+        // el detalle del sitio (mismo flujo que un marker en modo "sitios").
+        const sitioFeature = sitiosRef.current?.features.find((f) => f.properties.id === p.id)
+        if (sitioFeature) onSelectSitioRef.current?.(sitioFeature)
       }
-    })
+    }
 
-    mapRef.current.on('mousemove', RESUMEN_FILL_LAYER, (e) => {
+    const handleResumenHover = (e: maplibregl.MapLayerMouseEvent) => {
       const map = mapRef.current
       const feature = e.features?.[0] as unknown as GeoResumenFeature | undefined
       if (!map || !feature) return
@@ -155,13 +168,19 @@ export function GeoMap({ onSelectSitio }: Props) {
         })
       }
       hoverPopupRef.current.setLngLat(e.lngLat).setHTML(html).addTo(map)
-    })
+    }
 
-    mapRef.current.on('mouseleave', RESUMEN_FILL_LAYER, () => {
+    const handleResumenLeave = () => {
       const map = mapRef.current
       if (map) map.getCanvas().style.cursor = ''
       hoverPopupRef.current?.remove()
-    })
+    }
+
+    for (const layer of [RESUMEN_FILL_LAYER, RESUMEN_CIRCLE_LAYER]) {
+      mapRef.current.on('click', layer, handleResumenClick)
+      mapRef.current.on('mousemove', layer, handleResumenHover)
+      mapRef.current.on('mouseleave', layer, handleResumenLeave)
+    }
 
     return () => {
       mapRef.current?.remove()
@@ -199,6 +218,11 @@ export function GeoMap({ onSelectSitio }: Props) {
       return
     }
 
+    // El nivel "sitio" trae geometría de puntos (no polígonos): se dibuja
+    // como capa de círculos en vez de fill/outline, ambas capas conviven en
+    // el estilo y se alternan por visibilidad para no recrear el source.
+    const esSitio = nivelRef.current === 'sitio'
+
     if (map.getSource(RESUMEN_SOURCE_ID)) {
       ;(map.getSource(RESUMEN_SOURCE_ID) as maplibregl.GeoJSONSource).setData(data as never)
     } else {
@@ -218,17 +242,35 @@ export function GeoMap({ onSelectSitio }: Props) {
         source: RESUMEN_SOURCE_ID,
         paint: { 'line-color': '#0f172a', 'line-width': 1 },
       })
+      map.addLayer({
+        id: RESUMEN_CIRCLE_LAYER,
+        type: 'circle',
+        source: RESUMEN_SOURCE_ID,
+        paint: {
+          'circle-radius': 8,
+          'circle-color': '#94a3b8',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#0f172a',
+        },
+      })
     }
+
+    map.setLayoutProperty(RESUMEN_FILL_LAYER, 'visibility', esSitio ? 'none' : 'visible')
+    map.setLayoutProperty(RESUMEN_OUTLINE_LAYER, 'visibility', esSitio ? 'none' : 'visible')
+    map.setLayoutProperty(RESUMEN_CIRCLE_LAYER, 'visibility', esSitio ? 'visible' : 'none')
 
     const values = getMetricValues(data.features, metricRef.current)
     const min = values.length ? Math.min(...values) : 0
     const max = values.length ? Math.max(...values) : 1
-    map.setPaintProperty(RESUMEN_FILL_LAYER, 'fill-color', buildFillColorExpression(metricRef.current, min, max))
+    const colorExpr = buildFillColorExpression(metricRef.current, min, max)
+    map.setPaintProperty(RESUMEN_FILL_LAYER, 'fill-color', colorExpr)
+    map.setPaintProperty(RESUMEN_CIRCLE_LAYER, 'circle-color', colorExpr)
   }
 
   function removeChoropleth(map: maplibregl.Map) {
     if (map.getLayer(RESUMEN_FILL_LAYER)) map.removeLayer(RESUMEN_FILL_LAYER)
     if (map.getLayer(RESUMEN_OUTLINE_LAYER)) map.removeLayer(RESUMEN_OUTLINE_LAYER)
+    if (map.getLayer(RESUMEN_CIRCLE_LAYER)) map.removeLayer(RESUMEN_CIRCLE_LAYER)
     if (map.getSource(RESUMEN_SOURCE_ID)) map.removeSource(RESUMEN_SOURCE_ID)
   }
 
@@ -339,7 +381,9 @@ export function GeoMap({ onSelectSitio }: Props) {
       })
     }
     if (vereda) {
-      items.push({ label: vereda.nombre })
+      // vereda ya no es la hoja del breadcrumb (ahora hay nivel "sitio"
+      // debajo): permite volver a la lista de veredas, igual que los demás.
+      items.push({ label: vereda.nombre, onClick: () => setVereda(null) })
     }
     return items
   }, [departamento, municipio, vereda, resetDrill, setMunicipio, setVereda])
