@@ -6,7 +6,6 @@ import { Home } from '@/pages/Home'
 import { MapaInteractivo } from '@/pages/MapaInteractivo'
 import { DashboardIndicadores } from '@/pages/DashboardIndicadores'
 import { Participacion } from '@/pages/Participacion'
-import { InsightsIA } from '@/pages/InsightsIA'
 import { Educacion } from '@/pages/Educacion'
 import { EtlDatos } from '@/pages/EtlDatos'
 import { EtlReglasCampo } from '@/pages/EtlReglasCampo'
@@ -44,7 +43,6 @@ export default function App() {
             <Route path="/mapas" element={<MapaInteractivo />} />
             <Route path="/dashboard" element={<DashboardIndicadores />} />
             <Route path="/reportar" element={<Participacion />} />
-            <Route path="/insights" element={<InsightsIA />} />
             <Route path="/educacion" element={<Educacion />} />
             <Route path="/etl/datos" element={<EtlDatos />} />
             <Route path="/etl/reglas/campo" element={<EtlReglasCampo />} />
