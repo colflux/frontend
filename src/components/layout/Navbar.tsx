@@ -32,11 +32,6 @@ export function Navbar() {
         <span className="dark:bg-white dark:rounded-md dark:px-2 dark:py-1 flex items-center">
           <img src={logoHorizontal} alt="Colflux" className="h-8 w-auto" />
         </span>
-        <p className="hidden lg:block text-xs text-fg-muted leading-none border-l border-border pl-3">
-          Gases de Efecto
-          <br />
-          Invernadero · Colombia
-        </p>
       </NavLink>
 
       <nav className="hidden md:flex items-center gap-1 ml-4">
