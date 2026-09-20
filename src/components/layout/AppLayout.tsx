@@ -5,7 +5,7 @@ import { Footer } from './Footer'
 import { AppSidebar } from './AppSidebar'
 import { ChatWidget } from '@/components/chat/ChatWidget'
 
-const SIDEBAR_ROUTES = ['/mapas', '/dashboard', '/reportar', '/insights']
+const SIDEBAR_ROUTES = ['/mapas', '/dashboard', '/reportar']
 const NO_FOOTER_ROUTES = ['/mapas']
 
 export function AppLayout({ children }: { children: ReactNode }) {

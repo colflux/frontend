@@ -4,10 +4,10 @@ import { useRolActual } from '@/hooks/useRolActual'
 const ITEMS = [
   { to: '/mapas', icon: '🗺️', label: 'Mapa' },
   { to: '/dashboard', icon: '📊', label: 'Indicadores' },
-  { to: '/insights', icon: '🤖', label: 'Insights' },
 ]
 
 const SOON_ITEMS = [
+  { icon: '🤖', label: 'Insights' },
   { icon: '📡', label: 'Sensores' },
   { icon: '🧩', label: 'Capas' },
   { icon: '⬇️', label: 'Descargas' },
