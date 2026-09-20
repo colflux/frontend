@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useRolActual } from '@/hooks/useRolActual'
+import { EcosistemasMap } from '@/components/home/EcosistemasMap'
 
 const FEATURES = [
   { icon: '🔬', title: 'Ciencia', desc: 'Datos confiables y abiertos' },
@@ -13,7 +14,7 @@ export function Home() {
   return (
     <div className="flex-1 flex flex-col">
       <section className="relative overflow-hidden bg-brand-teal-light dark:bg-surface">
-        <div className="max-w-6xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-12 items-center">
+        <div className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-12 items-center">
           <div>
             <h1 className="text-4xl md:text-5xl font-bold text-fg leading-tight">
               Sistema Integrado de Observación y Cuantificación de Carbono en Colombia
@@ -58,17 +59,7 @@ export function Home() {
             </div>
           </div>
 
-          <div className="relative h-80 md:h-[420px] rounded-2xl overflow-hidden bg-brand-teal dark:bg-brand-teal-dark flex items-center justify-center">
-            <span className="text-8xl drop-shadow" aria-hidden>
-              🏔️
-            </span>
-            <span className="absolute top-8 left-10 text-3xl" aria-hidden>
-              🌫️
-            </span>
-            <span className="absolute bottom-10 right-12 text-3xl" aria-hidden>
-              🌿
-            </span>
-          </div>
+          <EcosistemasMap />
         </div>
       </section>
 
