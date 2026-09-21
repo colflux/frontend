@@ -1,6 +1,6 @@
 import type { DetalleRegla, ReglaAutollenado } from '@/types'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api'
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options)

@@ -8,6 +8,16 @@ export interface FilterState {
 
 export type MapViewMode = 'sitios' | 'regiones'
 
+// Metodología seleccionada en el panel de filtros: define qué recuadro de
+// filtros condicionales se muestra debajo de los filtros transversales.
+export type Metodologia = 'general' | 'biomasa' | 'cos' | 'flujos'
+
+// Categoría de dato que consume el mapa (/api/geo/sitios/, /api/geo/resumen/):
+// "general" y "flujos" comparten la misma categoría "flujos" -la diferencia
+// entre esas dos metodologías es solo qué recuadro de filtros se muestra,
+// no qué datos trae el mapa-.
+export type CategoriaDato = 'flujos' | 'biomasa' | 'cos'
+
 // Selección de drill-down geográfico (departamento/municipio/vereda).
 // "vereda" agrupa también manzana: el backend no expone un nivel separado.
 export interface GeoDrillEntity {
@@ -73,6 +83,10 @@ export interface ResumenGas {
   ultima_medicion: UltimaMedicionCO2 | null
 }
 
+// Resumen de una categoría sin sub-filtro propio (biomasa, cos) — misma
+// forma que ResumenGas pero sin desagregar más.
+export type ResumenSimple = ResumenGas
+
 export interface SitioProperties {
   id: number
   nombre: string
@@ -86,6 +100,8 @@ export interface SitioProperties {
   rango_fechas: RangoFechas
   ultima_medicion_co2: UltimaMedicionCO2 | null
   resumen_por_gas: Partial<Record<GasType, ResumenGas>>
+  resumen_biomasa: ResumenSimple | null
+  resumen_cos: ResumenSimple | null
 }
 
 export interface SitioFeature {
@@ -169,9 +185,15 @@ export interface GeoResumenFeature {
 export interface GeoResumenFeatureCollection {
   type: 'FeatureCollection'
   features: GeoResumenFeature[]
+  excluidos?: number
+  categoria?: CategoriaDato
+  // Unidad fija de la categoría (biomasa/cos); null en flujos -ahí la unidad
+  // puede variar por grupo según el gas, y va en cada ultima_medicion-.
+  unidad?: string | null
 }
 
 export interface GeoResumenFilters {
+  categoria?: CategoriaDato
   gas?: GasType
   anio?: number
   desde?: string
@@ -180,6 +202,7 @@ export interface GeoResumenFilters {
   departamento?: number
   municipio?: number
   vereda?: number
+  region?: number
 }
 
 // ── resumen categórico no geográfico (/api/geo/resumen-categorico/) ─
@@ -207,9 +230,7 @@ export interface ResumenCategoricoResponse {
   resultados: ResumenCategoricoItem[]
 }
 
-export interface ResumenCategoricoFilters extends GeoResumenFilters {
-  region?: number
-}
+export type ResumenCategoricoFilters = GeoResumenFilters
 
 // ── tendencia de instalación de unidades de muestreo (/api/geo/tendencia-instalacion/) ─
 

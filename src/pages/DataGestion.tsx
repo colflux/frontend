@@ -7,7 +7,7 @@ import { UsuarioDrawer } from '@/components/admin/usuarios/UsuarioDrawer'
 import { FuenteDrawer } from '@/components/admin/fuentes/FuenteDrawer'
 import type { FuenteDatos } from '@/types'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api'
 
 function ApiStatusCard({ isError, isLoading }: { isError: boolean; isLoading: boolean }) {
   const offline = isError

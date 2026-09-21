@@ -1,6 +1,6 @@
 import type { DatosProyectoFilters, DatosProyectoResponse } from '@/types'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api'
 
 export const datosService = {
   getDatosProyecto: async (

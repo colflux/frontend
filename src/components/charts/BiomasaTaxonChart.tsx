@@ -1,17 +1,13 @@
-import { useState } from 'react'
 import { BarChart, Bar, LabelList, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useBiomasaPorTaxon } from '@/hooks/useBiomasaPorTaxon'
+import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
-import type { DimensionBiomasa } from '@/types'
-
-const DIMENSIONES: { valor: DimensionBiomasa; etiqueta: string }[] = [
-  { valor: 'familia', etiqueta: 'Familia' },
-  { valor: 'genero', etiqueta: 'Género' },
-  { valor: 'especie', etiqueta: 'Especie' },
-]
 
 export function BiomasaTaxonChart() {
-  const [dimension, setDimension] = useState<DimensionBiomasa>('familia')
+  // El "Agrupar por" (Familia/Género/Especie) vive en el panel de filtros
+  // (recuadro de Biomasa) en vez de un toggle local, para que quede visible
+  // junto al resto de filtros de la metodología.
+  const dimension = useAppStore((s) => s.biomasaDimension)
   const { data, isLoading } = useBiomasaPorTaxon(dimension)
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const tickColor = isDark ? '#94a3b8' : '#64748b'
@@ -42,21 +38,6 @@ export function BiomasaTaxonChart() {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex gap-1 justify-end">
-        {DIMENSIONES.map((d) => (
-          <button
-            key={d.valor}
-            onClick={() => setDimension(d.valor)}
-            className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-              d.valor === dimension
-                ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                : 'text-fg-muted hover:text-fg border border-border'
-            }`}
-          >
-            {d.etiqueta}
-          </button>
-        ))}
-      </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} margin={{ top: 20, right: 4, left: -24, bottom: 40 }}>
           <XAxis

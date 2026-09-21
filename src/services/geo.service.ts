@@ -12,7 +12,7 @@ import type {
   TendenciaInstalacionResponse,
 } from '@/types'
 
-const GEO_API_BASE = import.meta.env.VITE_GEO_API_BASE_URL ?? 'http://localhost:8000/api/geo'
+const GEO_API_BASE = import.meta.env.VITE_GEO_API_BASE_URL ?? 'http://localhost:8001/api/geo'
 
 export const geoService = {
   getSitios: async (): Promise<SitiosFeatureCollection> => {

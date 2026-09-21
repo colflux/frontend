@@ -1,5 +1,6 @@
 import { BarChart, Bar, LabelList, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { useCosPorProfundidad } from '@/hooks/useCosPorProfundidad'
+import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
 
 // Marrón oscuro→claro para sugerir profundidad creciente del perfil de suelo.
@@ -7,6 +8,10 @@ const PROFUNDIDAD_COLORS = ['#8a5a3c', '#7a4d33', '#6a402a', '#5a3321', '#4a2618
 
 export function CosProfundidadChart() {
   const { data, isLoading } = useCosPorProfundidad()
+  // "Profundidad de muestra" del recuadro de filtros de COS resalta el rango
+  // elegido en vez de recargar datos: el backend ya trae todos los rangos
+  // en una sola respuesta.
+  const profundidadSeleccionada = useAppStore((s) => s.cosProfundidad)
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const tickColor = isDark ? '#94a3b8' : '#64748b'
 
@@ -58,7 +63,13 @@ export function CosProfundidadChart() {
         />
         <Bar dataKey="carbono_pct_promedio" radius={[0, 3, 3, 0]}>
           {chartData.map((entry, i) => (
-            <Cell key={entry.rango_profundidad} fill={PROFUNDIDAD_COLORS[i % PROFUNDIDAD_COLORS.length]} />
+            <Cell
+              key={entry.rango_profundidad}
+              fill={PROFUNDIDAD_COLORS[i % PROFUNDIDAD_COLORS.length]}
+              opacity={
+                profundidadSeleccionada == null || entry.rango_profundidad === profundidadSeleccionada ? 1 : 0.3
+              }
+            />
           ))}
           <LabelList
             dataKey="carbono_pct_promedio"

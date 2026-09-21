@@ -1,9 +1,19 @@
-import type { FilterState, GeoResumenFilters } from '@/types'
+import type { CategoriaDato, FilterState, GeoResumenFilters, Metodologia } from '@/types'
+
+// "general" y "flujos" son la misma categoría de dato para el mapa -la
+// diferencia entre esas dos metodologías es solo el recuadro de filtros que
+// se muestra, no qué trae /api/geo/sitios//resumen-.
+export function metodologiaToCategoria(metodologia: Metodologia): CategoriaDato {
+  return metodologia === 'biomasa' || metodologia === 'cos' ? metodologia : 'flujos'
+}
 
 // El selector "Año" del panel de filtros se traduce al rango desde/hasta que
-// espera /api/geo/resumen/ (no hay un date-range picker separado).
-export function buildGeoResumenBaseFilters(filters: FilterState): GeoResumenFilters {
-  const f: GeoResumenFilters = { gas: filters.gas }
+// espera /api/geo/resumen/ (no hay un date-range picker separado). El gas
+// solo aplica cuando la categoría es "flujos" -biomasa/cos no lo soportan-.
+export function buildGeoResumenBaseFilters(filters: FilterState, metodologia: Metodologia): GeoResumenFilters {
+  const categoria = metodologiaToCategoria(metodologia)
+  const f: GeoResumenFilters = { categoria }
+  if (categoria === 'flujos') f.gas = filters.gas
   if (filters.year != null) {
     f.desde = `${filters.year}-01-01`
     f.hasta = `${filters.year}-12-31`
