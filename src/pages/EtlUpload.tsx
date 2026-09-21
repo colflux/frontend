@@ -4,6 +4,8 @@ import { Card } from '@/components/common/Card'
 import { SeccionNav } from '@/components/etl-upload/SeccionNav'
 import { MapeoList } from '@/components/etl-upload/MapeoList'
 import { PreviewModal } from '@/components/etl-upload/PreviewModal'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import { useFuentesDropdown } from '@/hooks/useFuentesDropdown'
 import { useAnalizarFuente } from '@/hooks/useAnalizarFuente'
 import { useGuardarAvance } from '@/hooks/useGuardarAvance'
@@ -206,8 +208,50 @@ export function EtlUpload() {
         .every((s) => store.seccionesGuardadas.has(s.orden))
   )
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'etl-upload',
+    steps: [
+      {
+        element: '[data-tour="etlupload-fuente"]',
+        popover: {
+          title: 'Fuente de datos',
+          description: 'Elige la fuente a analizar, o sube el archivo directamente si no está registrado.',
+        },
+      },
+      {
+        element: '[data-tour="etlupload-analizar"]',
+        popover: {
+          title: 'Analizar archivo',
+          description: 'Lee el archivo y prepara las columnas para mapearlas en el siguiente paso.',
+        },
+      },
+      {
+        element: '[data-tour="etlupload-secciones"]',
+        popover: {
+          title: 'Secciones del mapeo',
+          description: 'Avanza sección por sección: cada una agrupa las entidades que dependen de las anteriores.',
+        },
+      },
+      {
+        element: '[data-tour="etlupload-mapeo"]',
+        popover: {
+          title: 'Asignar destino de columnas',
+          description: 'Asigna a qué modelo y campo va cada columna del archivo.',
+        },
+      },
+      {
+        element: '[data-tour="etlupload-guardar"]',
+        popover: {
+          title: 'Validar y guardar',
+          description: 'Cuando termines de mapear la sección, valida e impórtala a la base de datos.',
+        },
+      },
+    ],
+  })
+
   return (
     <div className={`flex-1 p-6 flex flex-col gap-1 mx-auto w-full ${store.step === 2 ? 'max-w-4xl' : 'max-w-3xl'}`}>
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Cargar fuente de datos</h1>
         {fuenteActual ? (
@@ -256,7 +300,7 @@ export function EtlUpload() {
           </p>
 
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
+            <div data-tour="etlupload-fuente" className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-fg">Fuente de datos</label>
               <select
                 value={store.fuenteId ?? ''}
@@ -309,6 +353,7 @@ export function EtlUpload() {
             <div className="flex gap-2.5">
               <button
                 type="button"
+                data-tour="etlupload-analizar"
                 onClick={handleAnalizar}
                 disabled={!store.fuenteId || (!archivo && !tieneOrigenRegistrado) || analizar.isPending}
                 className="bg-brand-teal hover:bg-brand-teal-dark disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-md transition-colors"
@@ -338,7 +383,7 @@ export function EtlUpload() {
           </p>
 
           <div className="border border-border rounded-xl bg-panel">
-            <div className="px-4 pt-4">
+            <div data-tour="etlupload-secciones" className="px-4 pt-4">
               <SeccionNav />
             </div>
             <div className="px-4 pt-3">
@@ -348,13 +393,14 @@ export function EtlUpload() {
                 </p>
               )}
             </div>
-            <div className="px-4 pb-2">
+            <div data-tour="etlupload-mapeo" className="px-4 pb-2">
               <MapeoList />
             </div>
             <div className="px-4 py-3 border-t border-border flex items-center gap-2.5 flex-wrap">
               {!esSinMapear && (
                 <button
                   type="button"
+                  data-tour="etlupload-guardar"
                   onClick={handleGuardarSeccion}
                   disabled={previsualizar.isPending || importar.isPending}
                   className="bg-brand-teal hover:bg-brand-teal-dark disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-md transition-colors"

@@ -1,6 +1,8 @@
 import { Link, Navigate } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { useRolActual } from '@/hooks/useRolActual'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 
 const CANALES = [
   {
@@ -22,10 +24,24 @@ const CANALES = [
 export function Participacion() {
   const { tieneNivel } = useRolActual()
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'participacion',
+    steps: [
+      {
+        element: '[data-tour="participacion-canales"]',
+        popover: {
+          title: 'Canales de reporte',
+          description: 'Elige por dónde quieres reportar: gestión de datos (investigadores) o el formulario web.',
+        },
+      },
+    ],
+  })
+
   if (!tieneNivel('reportador')) return <Navigate to="/" replace />
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 max-w-6xl mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Reporta información desde tu territorio</h1>
         <p className="text-sm text-fg-muted mt-1">
@@ -33,7 +49,7 @@ export function Participacion() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div data-tour="participacion-canales" className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {CANALES.map((c) => (
           <Card key={c.title} className="flex flex-col items-start gap-2">
             <span className="text-xl" aria-hidden>

@@ -4,6 +4,8 @@ import { Card } from '@/components/common/Card'
 import { ConfirmModal } from '@/components/common/ConfirmModal'
 import { useReglaDetalle } from '@/hooks/useReglaDetalle'
 import { useActualizarParametrosRegla, useAplicarRegla, useDeshacerLoteRegla } from '@/hooks/useReglaMutations'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 
 const inputClass =
   'bg-surface border border-border text-fg text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-teal w-56'
@@ -34,6 +36,40 @@ export function EtlReglaDetalle() {
   useEffect(() => {
     if (d) setParametros(d.parametros)
   }, [d])
+
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'etl-regla-detalle',
+    steps: [
+      {
+        element: '[data-tour="regladetalle-parametros"]',
+        popover: {
+          title: 'Parámetros de cálculo',
+          description: 'Ajusta los valores que usa la regla. El ejemplo de abajo se recalcula al guardar.',
+        },
+      },
+      {
+        element: '[data-tour="regladetalle-ejemplo"]',
+        popover: {
+          title: 'Ejemplo por caso',
+          description: 'Muestra cómo quedarían los registros pendientes agrupados según qué condición les aplica.',
+        },
+      },
+      {
+        element: '[data-tour="regladetalle-aplicar"]',
+        popover: {
+          title: 'Aplicar la regla',
+          description: 'Aplica el cambio a todos los registros pendientes en la base de datos.',
+        },
+      },
+      {
+        element: '[data-tour="regladetalle-historial"]',
+        popover: {
+          title: 'Historial',
+          description: 'Aplicaciones anteriores de esta regla, con la opción de deshacer un lote.',
+        },
+      },
+    ],
+  })
 
   if (!codigo) {
     return (
@@ -100,6 +136,7 @@ export function EtlReglaDetalle() {
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-4 max-w-3xl mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">{d.nombre}</h1>
         <p className="text-sm text-fg-muted mt-1 font-mono">{campoCompleto}</p>
@@ -122,7 +159,7 @@ export function EtlReglaDetalle() {
       </Card>
 
       <Card title="Parámetros de cálculo">
-        <div className="flex flex-col gap-3.5">
+        <div data-tour="regladetalle-parametros" className="flex flex-col gap-3.5">
           {d.parametros_schema.map((p) => (
             <div key={p.clave} className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-fg">{p.etiqueta}</label>
@@ -146,6 +183,7 @@ export function EtlReglaDetalle() {
       </Card>
 
       <Card title="Ejemplo con los parámetros actuales, por caso">
+        <div data-tour="regladetalle-ejemplo">
         <p className="text-sm text-fg-muted mb-3">
           Los {d.pendientes} registros pendientes se agrupan según qué condición de la regla les aplica.
         </p>
@@ -196,6 +234,7 @@ export function EtlReglaDetalle() {
             </div>
           ))
         )}
+        </div>
       </Card>
 
       {d.validacion != null && (
@@ -214,6 +253,7 @@ export function EtlReglaDetalle() {
       )}
 
       <Card title="Aplicar">
+        <div data-tour="regladetalle-aplicar">
         <span className="inline-block bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 rounded-full px-2.5 py-1 text-xs font-bold mb-3">
           {d.pendientes} pendientes en toda la base de datos
         </span>
@@ -228,9 +268,11 @@ export function EtlReglaDetalle() {
             </button>
           </div>
         )}
+        </div>
       </Card>
 
       <Card title="Historial de aplicaciones">
+        <div data-tour="regladetalle-historial">
         {d.historial.length === 0 ? (
           <p className="text-sm text-fg-muted">Todavía no se ha aplicado esta regla.</p>
         ) : (
@@ -271,6 +313,7 @@ export function EtlReglaDetalle() {
             </table>
           </div>
         )}
+        </div>
       </Card>
 
       <Link

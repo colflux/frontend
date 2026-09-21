@@ -3,6 +3,8 @@ import { Link, Navigate } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { Select } from '@/components/common/Select'
 import { useRolActual } from '@/hooks/useRolActual'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 
 const ECOSISTEMAS = [
   { value: '', label: 'Selecciona un ecosistema' },
@@ -19,6 +21,26 @@ export function ReportarFormulario() {
   const [ubicacion, setUbicacion] = useState('')
   const [descripcion, setDescripcion] = useState('')
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'reportar-formulario',
+    steps: [
+      {
+        element: '[data-tour="reportar-form"]',
+        popover: {
+          title: 'Datos del reporte',
+          description: 'Indica el tipo de observación, la ubicación y describe lo que observaste.',
+        },
+      },
+      {
+        element: '[data-tour="reportar-enviar"]',
+        popover: {
+          title: 'Enviar',
+          description: 'Envía el reporte para que quede registrado.',
+        },
+      },
+    ],
+  })
+
   if (!tieneNivel('reportador')) return <Navigate to="/" replace />
 
   function handleSubmit(e: FormEvent) {
@@ -28,6 +50,7 @@ export function ReportarFormulario() {
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-4 max-w-2xl mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <Link
           to="/reportar"
@@ -65,7 +88,7 @@ export function ReportarFormulario() {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} data-tour="reportar-form" className="flex flex-col gap-4">
             <Select
               label="Tipo de observación"
               value={ecosistema}
@@ -106,6 +129,7 @@ export function ReportarFormulario() {
 
             <button
               type="submit"
+              data-tour="reportar-enviar"
               className="bg-brand-teal hover:bg-brand-teal-dark text-white px-4 py-2.5 rounded-md font-semibold text-sm transition-colors"
             >
               Enviar mensaje

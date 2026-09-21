@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Card } from '@/components/common/Card'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import { EmissionBarChart } from '@/components/charts/EmissionBarChart'
 import { EmissionTrendChart } from '@/components/charts/EmissionTrendChart'
 import { CategoricalChart, DonutCenterOverlay } from '@/components/charts/CategoricalChart'
@@ -65,8 +67,43 @@ export function DashboardIndicadores() {
 
   const tickColor = isDark ? '#94a3b8' : '#64748b'
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'dashboard',
+    steps: [
+      {
+        element: '[data-tour="dashboard-stats"]',
+        popover: {
+          title: 'Indicadores generales',
+          description: 'Muestras, sitios, proyectos y cobertura del territorio, agregados en tiempo real.',
+        },
+      },
+      {
+        element: '[data-tour="dashboard-comparativas"]',
+        popover: {
+          title: 'Distribución de sitios',
+          description: 'Cómo se usan los sitios monitoreados y qué porcentaje del territorio ya tiene datos.',
+        },
+      },
+      {
+        element: '[data-tour="dashboard-general"]',
+        popover: {
+          title: 'Sección General',
+          description: 'Todo el carbono medido, desglosado por región, ecosistema y estado de conservación.',
+        },
+      },
+      {
+        element: '[data-tour="dashboard-flujos"]',
+        popover: {
+          title: 'Flujos de GEI',
+          description: 'CO₂, CH₄ y N₂O por analizador y condición de luz (día/noche).',
+        },
+      },
+    ],
+  })
+
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 max-w-6xl mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Resumen de carbono</h1>
         <p className="text-sm text-fg-muted mt-1">
@@ -74,7 +111,7 @@ export function DashboardIndicadores() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div data-tour="dashboard-stats" className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <p className="text-2xl font-bold text-fg">
             {seriesLoading ? '…' : totalMuestras.toLocaleString('es-CO')}
@@ -104,7 +141,7 @@ export function DashboardIndicadores() {
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div data-tour="dashboard-comparativas" className="grid md:grid-cols-2 gap-4">
         <Card title="Distribución por uso del sitio">
           {usoDistribucion.length ? (
             <div className="relative">
@@ -164,7 +201,7 @@ export function DashboardIndicadores() {
         title="General"
         subtitle="Todo el carbono medido, por región, ecosistema y estado de conservación."
       />
-      <div className="grid md:grid-cols-2 gap-4">
+      <div data-tour="dashboard-general" className="grid md:grid-cols-2 gap-4">
         <Card title="Muestras por región">
           <CategoricalChart dimension="region" tipo="torta" />
         </Card>
@@ -183,7 +220,7 @@ export function DashboardIndicadores() {
         title="Flujos de GEI"
         subtitle="CO₂ / CH₄ / N₂O, en la unidad reportada por cada muestra."
       />
-      <div className="grid md:grid-cols-2 gap-4">
+      <div data-tour="dashboard-flujos" className="grid md:grid-cols-2 gap-4">
         <Card title="Flujo por analizador">
           <CategoricalChart
             dimension="analizador"
