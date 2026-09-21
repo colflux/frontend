@@ -17,8 +17,8 @@ const CONTENIDO: Record<(typeof TABS)[number], { icon: string; title: string; me
     { icon: '▶️', title: 'Recorrido por una estación de monitoreo', meta: 'Video · 7 min' },
   ],
   Publicaciones: [
-    { icon: '📚', title: 'Informe anual de carbono en páramos 2025', meta: 'Publicación técnica' },
-    { icon: '📚', title: 'Estado de los humedales de la Orinoquía', meta: 'Publicación técnica' },
+    { icon: '📚', title: 'Carbon losses linked to human disturbances in gallery forest in the eastern Orinoquía of Colombia', meta: 'Publicación técnica' },
+    { icon: '📚', title: 'Accumulation of carbon travels through a cross-section of a complex ecosystem: the Amazon forest', meta: 'Publicación técnica' },
   ],
 }
 
