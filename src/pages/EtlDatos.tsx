@@ -1,14 +1,16 @@
-import { useMemo, useReducer, useState } from 'react'
+import { useEffect, useMemo, useReducer, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { DatosTabs, TABS, type TabDef } from '@/components/etl-datos/DatosTabs'
 import { DatosToolbar } from '@/components/etl-datos/DatosToolbar'
 import { DatosTable } from '@/components/etl-datos/DatosTable'
 import { Paginacion } from '@/components/common/Paginacion'
 import { FuenteDrawer } from '@/components/admin/fuentes/FuenteDrawer'
+import { TourButton } from '@/components/common/TourButton'
 import { useDatosProyecto } from '@/hooks/useDatosProyecto'
 import { useDatosCarga } from '@/hooks/useDatosCarga'
 import { useFuentesDropdown } from '@/hooks/useFuentesDropdown'
 import { useReglasAutollenado } from '@/hooks/useReglasAutollenado'
+import { useOnboardingTour, haVistoTour } from '@/hooks/useOnboardingTour'
 import { datosService } from '@/services/datos.service'
 import { downloadFile } from '@/utils/download'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -126,8 +128,66 @@ export function EtlDatos() {
     }
   }
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'etl-datos',
+    autoStart: false,
+    steps: [
+      {
+        element: '[data-tour="etl-tabs"]',
+        popover: {
+          title: 'Pestañas de gas',
+          description: 'Cambia entre CO₂ y CH₄, y las demás vistas, para ver los datos de cada una.',
+        },
+      },
+      {
+        element: '[data-tour="etl-limpiar"]',
+        popover: {
+          title: 'Limpiar filtros',
+          description: 'Quita los filtros que hayas aplicado en la tabla.',
+        },
+      },
+      {
+        element: '[data-tour="etl-cargar-dropdown"]',
+        popover: {
+          title: 'Cargar / fuente',
+          description: 'Elige de qué proyecto o fuente quieres ver los datos cargados.',
+        },
+      },
+      {
+        element: '[data-tour="etl-descargar"]',
+        popover: {
+          title: 'Descargar Excel',
+          description: 'Descarga la tabla actual (con los filtros aplicados) en Excel.',
+        },
+      },
+      {
+        element: '[data-tour="etl-tabla"]',
+        popover: {
+          title: 'Tabla de datos',
+          description: 'Puedes filtrar directamente por columna, haciendo clic en el encabezado.',
+        },
+      },
+      {
+        element: '[data-tour="etl-paginacion"]',
+        popover: {
+          title: 'Paginación',
+          description: `Navega entre páginas si hay más de ${LIMITE} registros.`,
+        },
+      },
+    ],
+  })
+
+  useEffect(() => {
+    if (haVistoTour('etl-datos')) return
+    if (faltaOrigen || isError || isLoading || !columnas.length) return
+    const timer = setTimeout(iniciarTour, 400)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [faltaOrigen, isError, isLoading, columnas.length])
+
   return (
     <div className="flex-1 p-6 flex flex-col gap-1 max-w-[1400px] mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Datos cargados</h1>
         <p className="text-sm text-fg-muted mt-1">

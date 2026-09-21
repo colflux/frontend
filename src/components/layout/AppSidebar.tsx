@@ -19,24 +19,6 @@ export function AppSidebar() {
 
   return (
     <aside className="w-16 shrink-0 bg-panel border-r border-border flex flex-col items-center py-4 gap-1">
-      {tieneNivel('reportador') && (
-        <NavLink
-          to="/reportar"
-          title="Reportar"
-          className={({ isActive }) =>
-            `w-12 h-12 flex flex-col items-center justify-center rounded-lg text-[10px] font-medium gap-0.5 transition-colors ${
-              isActive
-                ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal-bright'
-                : 'text-fg-muted hover:bg-surface hover:text-fg'
-            }`
-          }
-        >
-          <span className="text-base" aria-hidden>
-            📝
-          </span>
-          Reportar
-        </NavLink>
-      )}
       {ITEMS.map((item) => (
         <NavLink
           key={item.to}
@@ -56,6 +38,24 @@ export function AppSidebar() {
           {item.label}
         </NavLink>
       ))}
+      {tieneNivel('reportador') && (
+        <NavLink
+          to="/reportar"
+          title="Reportar"
+          className={({ isActive }) =>
+            `w-12 h-12 flex flex-col items-center justify-center rounded-lg text-[10px] font-medium gap-0.5 transition-colors ${
+              isActive
+                ? 'bg-brand-teal/10 text-brand-teal dark:text-brand-teal-bright'
+                : 'text-fg-muted hover:bg-surface hover:text-fg'
+            }`
+          }
+        >
+          <span className="text-base" aria-hidden>
+            📝
+          </span>
+          Reportar
+        </NavLink>
+      )}
 
       <div className="w-8 border-t border-border my-2" />
 

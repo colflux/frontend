@@ -9,7 +9,7 @@ interface Props {
 
 export function Paginacion({ offset, limite, total, filasCount, onAnterior, onSiguiente }: Props) {
   return (
-    <div className="flex items-center justify-center gap-4 py-4 text-sm text-fg-muted">
+    <div data-tour="etl-paginacion" className="flex items-center justify-center gap-4 py-4 text-sm text-fg-muted">
       <button
         type="button"
         onClick={onAnterior}

@@ -50,7 +50,7 @@ export function DatosTable({
   const hayReglas = columnas.some((c) => reglas[c.clave])
 
   return (
-    <div className="overflow-x-auto my-5 border border-border rounded-xl bg-panel">
+    <div data-tour="etl-tabla" className="overflow-x-auto my-5 border border-border rounded-xl bg-panel">
       <table className="border-collapse text-xs whitespace-nowrap w-full">
         <thead>
           <tr>

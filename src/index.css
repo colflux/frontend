@@ -36,3 +36,36 @@ body {
   font-size: 13px;
   padding: 10px 14px !important;
 }
+
+/* driver.js (tour de onboarding) — se adapta al tema claro/oscuro */
+.dark .driver-popover {
+  background-color: var(--color-panel);
+  color: var(--color-fg);
+}
+
+.dark .driver-popover-title,
+.dark .driver-popover-description,
+.dark .driver-popover-progress-text {
+  color: var(--color-fg);
+}
+
+.dark .driver-popover-arrow-side-bottom {
+  border-bottom-color: var(--color-panel);
+}
+.dark .driver-popover-arrow-side-top {
+  border-top-color: var(--color-panel);
+}
+.dark .driver-popover-arrow-side-left {
+  border-left-color: var(--color-panel);
+}
+.dark .driver-popover-arrow-side-right {
+  border-right-color: var(--color-panel);
+}
+
+.dark .driver-popover-close-btn {
+  color: var(--color-fg-muted);
+}
+
+.driver-popover-footer-btn {
+  text-shadow: none !important;
+}

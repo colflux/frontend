@@ -25,7 +25,7 @@ interface Props {
 
 export function DatosTabs({ activeId, onChange }: Props) {
   return (
-    <div className="flex gap-1.5 flex-wrap">
+    <div data-tour="etl-tabs" className="flex gap-1.5 flex-wrap">
       {TABS.map((t) => (
         <button
           key={t.id}
