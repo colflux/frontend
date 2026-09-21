@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useHomeStats } from '@/hooks/useHomeStats'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import { EcosistemasMap } from '@/components/home/EcosistemasMap'
 import { LoginModal } from '@/components/layout/LoginModal'
+import { TourButton } from '@/components/common/TourButton'
 import ciencias from '@/assets/aliados/ciencias.png'
 import javeriana from '@/assets/aliados/javeriana.png'
 import rosario from '@/assets/aliados/rosario.png'
@@ -12,7 +14,7 @@ import jardinBotanico from '@/assets/aliados/jardin-botanico-alcaldia.png'
 import ideam from '@/assets/aliados/ideam.png'
 import cda from '@/assets/aliados/cda.png'
 import corredorJaguar from '@/assets/aliados/corredor-jaguar.png'
-import sobreProyecto from '@/assets/ecosistemas/paramo-2.jpg'
+import sobreProyecto from '@/assets/Chorrera.jpeg'
 import monitoreoImg from '@/assets/ecosistemas/paramo-1.jpg'
 import comunidadesImg from '@/assets/ecosistemas/paramo-2.jpg'
 
@@ -71,8 +73,43 @@ export function Home() {
     }
   }
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'home',
+    steps: [
+      {
+        element: '[data-tour="home-explora"]',
+        popover: {
+          title: 'Explora los datos',
+          description: 'Aquí entras al mapa interactivo con todos los sitios monitoreados.',
+        },
+      },
+      {
+        element: '[data-tour="home-reportar"]',
+        popover: {
+          title: 'Reportar información',
+          description: 'Si tienes una observación de campo, repórtala aquí (te pedirá iniciar sesión).',
+        },
+      },
+      {
+        element: '[data-tour="home-stats"]',
+        popover: {
+          title: 'Estadísticas en vivo',
+          description: 'Estos números se actualizan con la información real de la plataforma.',
+        },
+      },
+      {
+        element: '[data-tour="home-explora-colflux"]',
+        popover: {
+          title: 'Explora COLFLUX',
+          description: 'Tres rutas rápidas para entender cómo funciona COLFLUX: monitoreo, comunidades y datos.',
+        },
+      },
+    ],
+  })
+
   return (
     <div className="flex-1 flex flex-col">
+      <TourButton onClick={iniciarTour} />
       <section className="relative overflow-hidden bg-brand-teal-light dark:bg-surface">
         <div className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-12 items-center">
           <div>
@@ -82,12 +119,14 @@ export function Home() {
             <div className="mt-8 flex gap-3">
               <Link
                 to="/mapas"
+                data-tour="home-explora"
                 className="bg-panel border border-border text-fg px-6 py-3 rounded-full font-semibold hover:border-brand-teal transition-colors"
               >
                 Explora los datos
               </Link>
               <button
                 type="button"
+                data-tour="home-reportar"
                 onClick={handleReportarClick}
                 className="bg-brand-yellow hover:bg-brand-yellow-dark text-brand-brown px-6 py-3 rounded-full font-semibold transition-colors"
               >
@@ -96,7 +135,7 @@ export function Home() {
             </div>
             <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
 
-            <div className="mt-12 grid grid-cols-3 gap-4">
+            <div data-tour="home-stats" className="mt-12 grid grid-cols-3 gap-4">
               <div className="bg-panel border border-border rounded-xl p-4">
                 <p className="text-2xl font-bold text-brand-teal-dark dark:text-brand-teal-bright">
                   {stats ? stats.sitios : '—'}
@@ -153,7 +192,7 @@ export function Home() {
         <p className="mt-2 text-fg-muted">
           Conoce cómo medimos, con quién trabajamos y dónde encontrar los datos.
         </p>
-        <div className="mt-8 grid md:grid-cols-3 gap-6">
+        <div data-tour="home-explora-colflux" className="mt-8 grid md:grid-cols-3 gap-6">
           {EXPLORA.map((item) => (
             <Link
               key={item.tag}
