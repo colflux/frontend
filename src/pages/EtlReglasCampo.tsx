@@ -1,6 +1,8 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { useReglasAutollenadoLista } from '@/hooks/useReglasAutollenadoLista'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 
 function qsConFuenteCarga(base: Record<string, string>, fuenteId: string | null, cargaId: string | null) {
   const qs = new URLSearchParams(base)
@@ -20,8 +22,22 @@ export function EtlReglasCampo() {
 
   const volverHref = fuenteId && cargaId ? `/etl/datos?${qsConFuenteCarga({}, fuenteId, cargaId)}` : null
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'etl-reglas-campo',
+    steps: [
+      {
+        element: '[data-tour="reglascampo-tarjetas"]',
+        popover: {
+          title: 'Reglas disponibles',
+          description: 'Autollenado y validación de rangos para este atributo. Entra a cada tarjeta para verla en detalle.',
+        },
+      },
+    ],
+  })
+
   return (
     <div className="flex-1 p-6 flex flex-col gap-1 max-w-5xl mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">{campo || 'Reglas del atributo'}</h1>
         <p className="text-sm text-fg-muted mt-1">
@@ -44,7 +60,7 @@ export function EtlReglasCampo() {
           No hay reglas configuradas para este atributo.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-5">
+        <div data-tour="reglascampo-tarjetas" className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-5">
           {reglasDelCampo.flatMap((r) => {
             const tarjetas = [
               <Link

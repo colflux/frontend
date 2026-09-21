@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 
 const TABS = ['Recursos', 'Cursos', 'Videos', 'Publicaciones', 'Encuentros'] as const
 
@@ -52,8 +54,29 @@ const ENCUENTROS = [
 export function Educacion() {
   const [tab, setTab] = useState<TabValue>('Encuentros')
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'educacion',
+    steps: [
+      {
+        element: '[data-tour="educacion-tabs"]',
+        popover: {
+          title: 'Pestañas de contenido',
+          description: 'Cambia entre Recursos, Cursos, Videos, Publicaciones y Encuentros.',
+        },
+      },
+      {
+        element: '[data-tour="educacion-contenido"]',
+        popover: {
+          title: 'Contenido',
+          description: 'Material educativo sobre carbono, ecosistemas y actividades de la comunidad.',
+        },
+      },
+    ],
+  })
+
   return (
     <div className="flex-1 p-6 flex flex-col gap-6 max-w-5xl mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Aprende y participa</h1>
         <p className="text-sm text-fg-muted mt-1">
@@ -61,7 +84,7 @@ export function Educacion() {
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-border">
+      <div data-tour="educacion-tabs" className="flex gap-1 border-b border-border">
         {TABS.map((t) => (
           <button
             key={t}
@@ -78,7 +101,7 @@ export function Educacion() {
       </div>
 
       {tab === 'Encuentros' ? (
-        <div className="space-y-4">
+        <div data-tour="educacion-contenido" className="space-y-4">
           {ENCUENTROS.map((item) => (
             <div
               key={item.id}
@@ -124,7 +147,7 @@ export function Educacion() {
           ))}
         </div>
       ) : (
-        <div className="grid md:grid-cols-3 gap-4">
+        <div data-tour="educacion-contenido" className="grid md:grid-cols-3 gap-4">
           {CONTENIDO[tab].map((item) => (
             <div
               key={item.title}

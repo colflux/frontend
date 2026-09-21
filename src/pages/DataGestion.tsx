@@ -5,6 +5,8 @@ import { FuentesTable } from '@/components/data/FuentesTable'
 import { ProyectoDrawer } from '@/components/admin/proyectos/ProyectoDrawer'
 import { UsuarioDrawer } from '@/components/admin/usuarios/UsuarioDrawer'
 import { FuenteDrawer } from '@/components/admin/fuentes/FuenteDrawer'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import type { FuenteDatos } from '@/types'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api'
@@ -85,8 +87,43 @@ export function DataGestion() {
     fuentesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'data-gestion',
+    steps: [
+      {
+        element: '[data-tour="data-api-status"]',
+        popover: {
+          title: 'Estado de la API',
+          description: 'Indica si el backend está conectado y con qué dirección.',
+        },
+      },
+      {
+        element: '[data-tour="data-stats"]',
+        popover: {
+          title: 'Resumen de fuentes',
+          description: 'Total de fuentes registradas y cuántas están completas, pendientes o con errores.',
+        },
+      },
+      {
+        element: '[data-tour="data-proyectos"]',
+        popover: {
+          title: 'Proyectos',
+          description: 'Cada proyecto agrupa sus fuentes de datos. Usa "Ver fuentes" para filtrar la tabla de abajo.',
+        },
+      },
+      {
+        element: '[data-tour="data-fuentes"]',
+        popover: {
+          title: 'Fuentes de datos',
+          description: 'Archivos Excel, CSVs, shapefiles y APIs registrados, con su estado y acceso directo.',
+        },
+      },
+    ],
+  })
+
   return (
     <div className="flex-1 p-6 flex flex-col gap-5 max-w-[1140px] mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Gestión de Datos</h1>
         <p className="text-sm text-fg-muted mt-1">
@@ -95,19 +132,27 @@ export function DataGestion() {
         </p>
       </div>
 
-      <ApiStatusCard isError={isError} isLoading={isLoading} />
-      <StatsBar fuentes={fuentes} />
+      <div data-tour="data-api-status">
+        <ApiStatusCard isError={isError} isLoading={isLoading} />
+      </div>
+      <div data-tour="data-stats">
+        <StatsBar fuentes={fuentes} />
+      </div>
 
-      <ProyectosTable proyectos={proyectos} fuentes={fuentes} onVerFuentes={handleVerFuentes} />
+      <div data-tour="data-proyectos">
+        <ProyectosTable proyectos={proyectos} fuentes={fuentes} onVerFuentes={handleVerFuentes} />
+      </div>
 
       <div ref={fuentesRef} />
 
-      <FuentesTable
-        fuentes={fuentes}
-        proyectos={proyectos}
-        proyectoFiltro={proyectoFiltro}
-        onProyectoFiltroChange={setProyectoFiltro}
-      />
+      <div data-tour="data-fuentes">
+        <FuentesTable
+          fuentes={fuentes}
+          proyectos={proyectos}
+          proyectoFiltro={proyectoFiltro}
+          onProyectoFiltroChange={setProyectoFiltro}
+        />
+      </div>
 
       <ProyectoDrawer />
       <UsuarioDrawer />

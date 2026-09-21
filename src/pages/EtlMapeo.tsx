@@ -1,5 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMapeoCarga } from '@/hooks/useMapeoCarga'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import { downloadJson } from '@/utils/download'
 import type { MapeoCarga, MapeoColumna } from '@/types'
 
@@ -74,8 +76,29 @@ export function EtlMapeo() {
   })
   data?.mapeos.forEach((m) => columnasConocidas.add(m.columna_origen))
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'etl-mapeo',
+    steps: [
+      {
+        element: '[data-tour="etlmapeo-acciones"]',
+        popover: {
+          title: 'Acciones',
+          description: 'Descarga el mapeo completo en JSON o ve directamente los datos cargados de esta carga.',
+        },
+      },
+      {
+        element: '[data-tour="etlmapeo-tabla"]',
+        popover: {
+          title: 'Detalle del mapeo',
+          description: 'Cada columna del archivo original, a qué modelo y campo se mapeó, y con qué transformación.',
+        },
+      },
+    ],
+  })
+
   return (
     <div className="flex-1 p-6 flex flex-col gap-1 max-w-[1140px] mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Cómo se mapeó el archivo</h1>
         <p className="text-sm text-fg-muted mt-1">
@@ -89,7 +112,7 @@ export function EtlMapeo() {
             ? `${data.mapeos.length} columna${data.mapeos.length === 1 ? '' : 's'} mapeada${data.mapeos.length === 1 ? '' : 's'} · ${data.total_filas} fila${data.total_filas === 1 ? '' : 's'}`
             : ''}
         </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div data-tour="etlmapeo-acciones" className="flex items-center gap-2.5 flex-wrap">
           {data && (
             <>
               <button
@@ -131,7 +154,7 @@ export function EtlMapeo() {
           <h2 className="text-base font-extrabold text-brand-teal-dark dark:text-brand-teal-bright mt-6 mb-3">
             Columnas del archivo original y su destino
           </h2>
-          <div className="overflow-x-auto border border-border rounded-xl bg-panel mb-5">
+          <div data-tour="etlmapeo-tabla" className="overflow-x-auto border border-border rounded-xl bg-panel mb-5">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-surface">

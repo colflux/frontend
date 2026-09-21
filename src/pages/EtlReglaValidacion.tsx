@@ -3,6 +3,8 @@ import { Bar, BarChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } fro
 import { Card } from '@/components/common/Card'
 import { useReglaDetalle } from '@/hooks/useReglaDetalle'
 import { useThemeStore } from '@/store/useThemeStore'
+import { TourButton } from '@/components/common/TourButton'
+import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import type { ValidacionFila } from '@/types'
 
 const COLORES: Record<string, string> = {
@@ -45,6 +47,26 @@ export function EtlReglaValidacion() {
 
   const { data: d, isLoading, isError, error } = useReglaDetalle(codigo)
 
+  const { start: iniciarTour } = useOnboardingTour({
+    tourId: 'etl-regla-validacion',
+    steps: [
+      {
+        element: '[data-tour="reglavalidacion-resumen"]',
+        popover: {
+          title: 'Resumen por condición de luz',
+          description: 'Rango de horas ya asignadas, con un chequeo automático contra lo esperado.',
+        },
+      },
+      {
+        element: '[data-tour="reglavalidacion-histograma"]',
+        popover: {
+          title: 'Distribución por hora del día',
+          description: 'Picos fuera de la franja esperada son candidatos a revisar.',
+        },
+      },
+    ],
+  })
+
   if (!codigo) {
     return (
       <div className="flex-1 p-6 max-w-4xl mx-auto w-full">
@@ -80,12 +102,14 @@ export function EtlReglaValidacion() {
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-4 max-w-4xl mx-auto w-full">
+      <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Validación de rangos — {d.nombre}</h1>
         <p className="text-sm text-fg-muted mt-1">{campoCompleto}, agrupado por condición de luz</p>
       </div>
 
       <Card title="Resumen por condición de luz">
+        <div data-tour="reglavalidacion-resumen">
         <p className="text-sm text-fg-muted mb-3">
           Rango de horas ya asignadas en <code>{d.campo_destino}</code>. Sirve para detectar tomas mal clasificadas
           (p. ej. una toma "noche" con hora de mediodía).
@@ -137,9 +161,11 @@ export function EtlReglaValidacion() {
             </table>
           </div>
         )}
+        </div>
       </Card>
 
       <Card title="Distribución de tomas por hora del día">
+        <div data-tour="reglavalidacion-histograma">
         <p className="text-sm text-fg-muted mb-3">
           Cantidad de tomas en cada franja horaria (0–23h), una serie por condición de luz. Picos fuera de la franja
           esperada son candidatos a revisar.
@@ -172,6 +198,7 @@ export function EtlReglaValidacion() {
             </BarChart>
           </ResponsiveContainer>
         )}
+        </div>
       </Card>
 
       <Link
