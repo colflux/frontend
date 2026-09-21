@@ -48,4 +48,24 @@ export const authService = {
     if (!res.ok) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
     return res.json() as Promise<Responsable>
   },
+
+  forgotPassword: async (correo: string): Promise<{ detail: string }> => {
+    const res = await fetch(`${API_BASE}/auth/forgot-password/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ correo }),
+    })
+    if (!res.ok) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
+    return res.json() as Promise<{ detail: string }>
+  },
+
+  resetPassword: async (token: string, password: string): Promise<{ detail: string }> => {
+    const res = await fetch(`${API_BASE}/auth/reset-password/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password }),
+    })
+    if (!res.ok) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
+    return res.json() as Promise<{ detail: string }>
+  },
 }

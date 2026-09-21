@@ -20,6 +20,19 @@ export function useRegistro() {
   })
 }
 
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (correo: string) => authService.forgotPassword(correo),
+  })
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: ({ token, password }: { token: string; password: string }) =>
+      authService.resetPassword(token, password),
+  })
+}
+
 export function useLogout() {
   const token = useAuthStore((s) => s.token)
   const cerrarSesion = useAuthStore((s) => s.cerrarSesion)
