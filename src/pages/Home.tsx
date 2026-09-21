@@ -13,10 +13,10 @@ export function Home() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <section className="relative overflow-hidden bg-brand-teal-light dark:bg-surface">
+      <section className="relative overflow-hidden bg-gradient-to-r from-brand-teal-light via-brand-teal-light to-brand-teal/20 dark:from-surface dark:via-surface dark:to-brand-teal-dark/20">
         <div className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-12 items-center">
           <div>
-            <h1 className="text-4xl md:text-5xl font-bold text-fg leading-tight">
+            <h1 className="text-4xl md:text-5xl font-bold text-brand-teal-dark dark:text-brand-teal-bright leading-tight">
               Sistema Integrado de Observación y Cuantificación de Carbono en Colombia
             </h1>
             <p className="mt-5 text-fg-muted text-lg leading-relaxed">
