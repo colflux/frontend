@@ -16,6 +16,7 @@ import { EtlUpload } from '@/pages/EtlUpload'
 import { DataGestion } from '@/pages/DataGestion'
 import { DbModelo } from '@/pages/DbModelo'
 import { Team } from '@/pages/Team'
+import { ResetPassword } from '@/pages/ResetPassword'
 import { useThemeStore } from '@/store/useThemeStore'
 
 const queryClient = new QueryClient({
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/data" element={<DataGestion />} />
             <Route path="/db" element={<DbModelo />} />
             <Route path="/team" element={<Team />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
           </Routes>
         </AppLayout>
       </BrowserRouter>
