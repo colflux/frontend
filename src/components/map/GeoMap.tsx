@@ -5,8 +5,8 @@ import { useSitios } from '@/hooks/useSitios'
 import { useResumenGeo } from '@/hooks/useResumenGeo'
 import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
-import { GAS_COLORS, formatValor, formatUnidad } from '@/utils/formatters'
-import { buildGeoResumenBaseFilters } from '@/utils/geoFilters'
+import { CATEGORIA_COLORS, CATEGORIA_LABELS, GAS_COLORS, formatValor, formatUnidad } from '@/utils/formatters'
+import { buildGeoResumenBaseFilters, metodologiaToCategoria } from '@/utils/geoFilters'
 import {
   buildFillColorExpression,
   computeBounds,
@@ -59,6 +59,7 @@ export function GeoMap({ onSelectSitio }: Props) {
   const { data: sitios } = useSitios()
   const {
     filters,
+    metodologia,
     mapViewMode,
     setMapViewMode,
     departamento,
@@ -72,6 +73,11 @@ export function GeoMap({ onSelectSitio }: Props) {
   const [basemap, setBasemap] = useState<BasemapMode>('map')
   const [metric, setMetric] = useState<MetricField>('promedio')
 
+  // Metodología → categoría de dato que consume el mapa (flujos/biomasa/cos):
+  // determina qué trae /api/geo/sitios/ y /api/geo/resumen/, y cómo se
+  // colorean pines y choropleth.
+  const categoria = useMemo(() => metodologiaToCategoria(metodologia), [metodologia])
+
   // El nivel mostrado en el mapa es el siguiente nivel hijo del último
   // elegido: sin departamento se ven departamentos, con departamento (sin
   // municipio) se ven sus municipios, etc. — hasta sitio (puntos), que es
@@ -80,12 +86,12 @@ export function GeoMap({ onSelectSitio }: Props) {
     departamento == null ? 'departamento' : municipio == null ? 'municipio' : vereda == null ? 'vereda' : 'sitio'
 
   const resumenFilters = useMemo<GeoResumenFilters>(() => {
-    const f = buildGeoResumenBaseFilters(filters)
+    const f = buildGeoResumenBaseFilters(filters, metodologia)
     if (departamento) f.departamento = departamento.id
     if (municipio) f.municipio = municipio.id
     if (vereda) f.vereda = vereda.id
     return f
-  }, [filters, departamento, municipio, vereda])
+  }, [filters, metodologia, departamento, municipio, vereda])
 
   const { data: resumenData } = useResumenGeo(nivel, resumenFilters, mapViewMode === 'regiones')
 
@@ -302,7 +308,11 @@ export function GeoMap({ onSelectSitio }: Props) {
 
     if (mapViewMode !== 'sitios' || !sitios?.features.length) return
 
-    const gasColor = GAS_COLORS[filters.gas] ?? GAS_COLORS.CO2
+    // Color y etiqueta de la categoría activa: en "flujos" siguen siendo
+    // los del gas elegido (sub-filtro propio de esa categoría); biomasa/cos
+    // tienen un único color fijo, sin sub-filtro.
+    const color = categoria === 'flujos' ? (GAS_COLORS[filters.gas] ?? GAS_COLORS.CO2) : CATEGORIA_COLORS[categoria]
+    const etiqueta = categoria === 'flujos' ? filters.gas : CATEGORIA_LABELS[categoria]
 
     const features = filters.proyectoId
       ? sitios.features.filter((f) =>
@@ -313,10 +323,11 @@ export function GeoMap({ onSelectSitio }: Props) {
     features.forEach((feature) => {
       const [lng, lat] = feature.geometry.coordinates
       const p = feature.properties
-      const resumenGas = p.resumen_por_gas?.[filters.gas]
-      // Sitios sin datos del gas seleccionado se pintan atenuados en vez del
-      // color del gas, para no sugerir que ahí también se midió ese gas.
-      const color = resumenGas ? gasColor : '#94a3b8'
+      const resumenActivo =
+        categoria === 'flujos' ? p.resumen_por_gas?.[filters.gas] : categoria === 'biomasa' ? p.resumen_biomasa : p.resumen_cos
+      // Sitios sin datos de la categoría seleccionada se pintan atenuados en
+      // vez del color propio, para no sugerir que ahí también se midió eso.
+      const colorSitio = resumenActivo ? color : '#94a3b8'
 
       const el = document.createElement('div')
       el.style.cssText = `
@@ -324,16 +335,16 @@ export function GeoMap({ onSelectSitio }: Props) {
         height: 14px;
         border-radius: 50% 50% 50% 0;
         transform: rotate(-45deg);
-        background: ${color};
+        background: ${colorSitio};
         border: 2px solid #0f172a;
-        opacity: ${resumenGas ? 1 : 0.45};
+        opacity: ${resumenActivo ? 1 : 0.45};
         cursor: pointer;
       `
       const proyectos = p.proyectos.map((pr) => pr.nombre).join(', ') || '—'
       const ubicacion = [p.municipio, p.departamento].filter(Boolean).join(', ') || 'Sin datos'
       const altitud = p.altitud != null ? `${p.altitud.toFixed(0)} m s.n.m.` : 'Sin datos'
-      const ultimaMedicion = resumenGas?.ultima_medicion
-        ? `${formatValor(resumenGas.ultima_medicion.valor, resumenGas.ultima_medicion.unidad)} (${resumenGas.ultima_medicion.fecha})`
+      const ultimaMedicion = resumenActivo?.ultima_medicion
+        ? `${formatValor(resumenActivo.ultima_medicion.valor, resumenActivo.ultima_medicion.unidad)} (${resumenActivo.ultima_medicion.fecha})`
         : 'Sin datos'
 
       const popup = new maplibregl.Popup({ offset: 20, closeButton: false }).setHTML(`
@@ -342,8 +353,8 @@ export function GeoMap({ onSelectSitio }: Props) {
         <br/><span style="color:#374151">Altitud: ${altitud}</span>
         <br/><span style="color:#374151">Proyecto(s): ${proyectos}</span>
         <br/><span style="color:#374151">Unidades de muestreo: ${p.unidades_muestreo.length}</span>
-        <br/><span style="color:#374151">Última medición (${filters.gas}): ${ultimaMedicion}</span>
-        <br/><span style="color:#374151">Total de muestras (${filters.gas}): ${resumenGas?.total_muestras ?? 0}</span>
+        <br/><span style="color:#374151">Última medición (${etiqueta}): ${ultimaMedicion}</span>
+        <br/><span style="color:#374151">Total de muestras (${etiqueta}): ${resumenActivo?.total_muestras ?? 0}</span>
         <br/><button class="ver-detalle-btn" style="margin-top:6px;padding:3px 10px;font-size:12px;font-weight:600;color:#fff;background:#198A77;border:none;border-radius:4px;cursor:pointer;">Ver detalle</button>
       `)
 
@@ -362,7 +373,7 @@ export function GeoMap({ onSelectSitio }: Props) {
 
       sitiosMarkersRef.current.push(marker)
     })
-  }, [sitios, filters.proyectoId, filters.gas, mapViewMode])
+  }, [sitios, filters.proyectoId, filters.gas, mapViewMode, categoria])
 
   const breadcrumbItems = useMemo(() => {
     const items: { label: string; onClick?: () => void }[] = [

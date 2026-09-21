@@ -74,6 +74,22 @@ const FOTOS_POR_DEPARTAMENTO: Record<string, string> = {
 const FOTOS_RESPALDO = [paramo1, paramo2, paramo3, paramo4]
 const [VIEWBOX_W, VIEWBOX_H] = VIEWBOX.split(' ').slice(2).map(Number)
 
+// El contenedor es más ancho que alto que el viewBox de Colombia (que es apaisado en vertical).
+// Con preserveAspectRatio="meet" el SVG se escala completo dentro del contenedor y queda con
+// márgenes laterales (letterbox), así que hay que replicar ese cálculo acá para ubicar el
+// tooltip de foto en el mismo punto donde quedó el departamento tras el escalado.
+const CONTAINER_ASPECT = 4 / 3
+const MAP_SCALE = Math.min(CONTAINER_ASPECT / VIEWBOX_W, 1 / VIEWBOX_H)
+const MAP_OFFSET_X = (CONTAINER_ASPECT - VIEWBOX_W * MAP_SCALE) / 2
+const MAP_OFFSET_Y = (1 - VIEWBOX_H * MAP_SCALE) / 2
+
+function posicionEnContenedor(cx: number, cy: number) {
+  return {
+    left: `${((MAP_OFFSET_X + cx * MAP_SCALE) / CONTAINER_ASPECT) * 100}%`,
+    top: `${(MAP_OFFSET_Y + cy * MAP_SCALE) * 100}%`,
+  }
+}
+
 export function EcosistemasMap() {
   const [seleccionado, setSeleccionado] = useState<string | null>(null)
 
@@ -95,10 +111,11 @@ export function EcosistemasMap() {
         <span className="font-semibold text-fg truncate">Geoportal COLFLUX</span>
       </div>
 
-      <div className="relative bg-white dark:bg-slate-950 px-2 py-3">
+      <div className="relative bg-white dark:bg-slate-950 px-2 py-3 aspect-[4/3] overflow-hidden">
         <svg
           viewBox={VIEWBOX}
-          className="w-full h-auto mx-auto"
+          preserveAspectRatio="xMidYMid meet"
+          className="w-full h-full mx-auto"
           onClick={() => setSeleccionado(null)}
         >
           <defs>
@@ -167,7 +184,7 @@ export function EcosistemasMap() {
         {depto && region && foto && (
           <div
             className="absolute pointer-events-none"
-            style={{ left: `${(depto.cx / VIEWBOX_W) * 100}%`, top: `${(depto.cy / VIEWBOX_H) * 100}%` }}
+            style={posicionEnContenedor(depto.cx, depto.cy)}
           >
             <div
               className={`pointer-events-auto w-48 -translate-y-1/2 rounded-lg border border-border bg-white dark:bg-slate-800 shadow-xl overflow-hidden ${

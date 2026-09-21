@@ -12,6 +12,7 @@ import { MomHojarascaChart } from '@/components/charts/MomHojarascaChart'
 import { useSitios } from '@/hooks/useSitios'
 import { useSeries } from '@/hooks/useSeries'
 import { useResumenGeo } from '@/hooks/useResumenGeo'
+import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { PIE_COLORS } from '@/utils/formatters'
 
@@ -31,6 +32,10 @@ export function DashboardIndicadores() {
   const { data: series, isLoading: seriesLoading } = useSeries({ gas: undefined })
   const { data: departamentosData } = useResumenGeo('departamento', {})
   const isDark = useThemeStore((s) => s.theme === 'dark')
+  const flujosAnalizadorId = useAppStore((s) => s.flujosAnalizadorId)
+  const setFlujosAnalizadorId = useAppStore((s) => s.setFlujosAnalizadorId)
+  const flujosCondicionLuzId = useAppStore((s) => s.flujosCondicionLuzId)
+  const setFlujosCondicionLuzId = useAppStore((s) => s.setFlujosCondicionLuzId)
 
   const usoDistribucion = useMemo(() => {
     const counts = new Map<string, number>()
@@ -180,10 +185,22 @@ export function DashboardIndicadores() {
       />
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Flujo por analizador">
-          <CategoricalChart dimension="analizador" tipo="barras" metrica="promedio" />
+          <CategoricalChart
+            dimension="analizador"
+            tipo="barras"
+            metrica="promedio"
+            selectedId={flujosAnalizadorId}
+            onSelect={(id) => setFlujosAnalizadorId(id === flujosAnalizadorId ? null : id)}
+          />
         </Card>
         <Card title="Flujo por condición de luz (día/noche)">
-          <CategoricalChart dimension="condicion_luz" tipo="barras" metrica="promedio" />
+          <CategoricalChart
+            dimension="condicion_luz"
+            tipo="barras"
+            metrica="promedio"
+            selectedId={flujosCondicionLuzId}
+            onSelect={(id) => setFlujosCondicionLuzId(id === flujosCondicionLuzId ? null : id)}
+          />
         </Card>
       </div>
 

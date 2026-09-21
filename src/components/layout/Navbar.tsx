@@ -27,11 +27,18 @@ export function Navbar() {
   useMe()
 
   return (
-    <header className="h-14 shrink-0 bg-panel border-b border-border flex items-center px-6 gap-6 sticky top-0 z-30">
+    <header
+      className="h-14 shrink-0 bg-white border-b border-border flex items-center px-6 gap-6 sticky top-0 z-30"
+      style={{
+        '--color-fg': '#0f172a',
+        '--color-fg-muted': '#64748b',
+        '--color-fg-subtle': '#94a3b8',
+        '--color-surface': '#f7faf8',
+        '--color-border': '#e2e8e4',
+      } as React.CSSProperties}
+    >
       <NavLink to="/" className="flex items-center gap-3 shrink-0">
-        <span className="dark:bg-white dark:rounded-md dark:px-2 dark:py-1 flex items-center">
-          <img src={logoHorizontal} alt="Colflux" className="h-8 w-auto" />
-        </span>
+        <img src={logoHorizontal} alt="Colflux" className="h-8 w-auto" />
       </NavLink>
 
       <nav className="hidden md:flex items-center gap-1 ml-4">
@@ -43,7 +50,7 @@ export function Navbar() {
             className={({ isActive }) =>
               `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 isActive
-                  ? 'text-brand-teal dark:text-brand-teal-bright bg-brand-teal/10'
+                  ? 'text-brand-teal bg-brand-teal/10'
                   : 'text-fg-muted hover:text-fg hover:bg-surface'
               }`
             }
@@ -57,7 +64,7 @@ export function Navbar() {
             className={({ isActive }) =>
               `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 isActive
-                  ? 'text-brand-teal dark:text-brand-teal-bright bg-brand-teal/10'
+                  ? 'text-brand-teal bg-brand-teal/10'
                   : 'text-fg-muted hover:text-fg hover:bg-surface'
               }`
             }
@@ -82,7 +89,7 @@ export function Navbar() {
                 className={({ isActive }) =>
                   `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     isActive
-                      ? 'text-brand-teal dark:text-brand-teal-bright bg-brand-teal/10'
+                      ? 'text-brand-teal bg-brand-teal/10'
                       : 'text-fg-muted hover:text-fg hover:bg-surface'
                   }`
                 }

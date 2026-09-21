@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { GeoMap } from '@/components/map/GeoMap'
-import { EmissionBarChart } from '@/components/charts/EmissionBarChart'
 import { FilterPanel } from '@/features/filters/FilterPanel'
-import { EmissionSummary } from '@/features/greenhouse/EmissionSummary'
 import { Card } from '@/components/common/Card'
 import { SiteDetailPanel } from '@/components/detalle/SiteDetailPanel'
 import type { SitioFeature } from '@/types'
@@ -16,14 +14,6 @@ export function MapaInteractivo() {
       <aside className="w-[380px] min-w-[380px] bg-panel border-r border-border overflow-y-auto flex flex-col gap-4 p-4">
         <Card title="Filtros">
           <FilterPanel />
-        </Card>
-
-        <Card title="Resumen">
-          <EmissionSummary />
-        </Card>
-
-        <Card title="Por proyecto">
-          <EmissionBarChart />
         </Card>
       </aside>
 

@@ -1,16 +1,32 @@
 import { useMemo } from 'react'
 import { Select } from '@/components/common/Select'
+import { Collapsible } from '@/components/common/Collapsible'
 import { useAppStore } from '@/store/useAppStore'
 import { useSitios } from '@/hooks/useSitios'
 import { useResumenGeo } from '@/hooks/useResumenGeo'
-import { buildGeoResumenBaseFilters } from '@/utils/geoFilters'
+import { useResumenCategorico } from '@/hooks/useResumenCategorico'
+import { useCosPorProfundidad } from '@/hooks/useCosPorProfundidad'
+import { buildGeoResumenBaseFilters, metodologiaToCategoria } from '@/utils/geoFilters'
 import { GAS_LABELS } from '@/utils/formatters'
-import type { GasType, SitioProyecto } from '@/types'
+import type { DimensionBiomasa, GasType, Metodologia, SitioProyecto } from '@/types'
 
 const GAS_OPTIONS: { value: GasType; label: string; disabled?: boolean }[] = [
   { value: 'CO2', label: GAS_LABELS.CO2 },
   { value: 'CH4', label: GAS_LABELS.CH4 },
   { value: 'N2O', label: GAS_LABELS.N2O, disabled: true },
+]
+
+const METODOLOGIA_OPTIONS: { value: Metodologia; label: string }[] = [
+  { value: 'general', label: 'General (todas)' },
+  { value: 'biomasa', label: 'Biomasa' },
+  { value: 'cos', label: 'Carbono orgánico del suelo (COS)' },
+  { value: 'flujos', label: 'Flujos de GEI' },
+]
+
+const BIOMASA_DIMENSION_OPTIONS: { value: DimensionBiomasa; label: string }[] = [
+  { value: 'familia', label: 'Familia' },
+  { value: 'genero', label: 'Género' },
+  { value: 'especie', label: 'Especie' },
 ]
 
 export function FilterPanel() {
@@ -19,12 +35,24 @@ export function FilterPanel() {
     setYear,
     setGas,
     setProyecto,
+    metodologia,
+    setMetodologia,
+    region,
     departamento,
     municipio,
     vereda,
+    setRegion,
     setDepartamento,
     setMunicipio,
     setVereda,
+    biomasaDimension,
+    setBiomasaDimension,
+    cosProfundidad,
+    setCosProfundidad,
+    flujosAnalizadorId,
+    setFlujosAnalizadorId,
+    flujosCondicionLuzId,
+    setFlujosCondicionLuzId,
   } = useAppStore()
   const { data: sitios } = useSitios()
 
@@ -53,8 +81,10 @@ export function FilterPanel() {
     return [...map.values()].sort((a, b) => a.nombre.localeCompare(b.nombre))
   }, [sitios])
 
-  const baseGeoFilters = useMemo(() => buildGeoResumenBaseFilters(filters), [filters])
+  const categoria = useMemo(() => metodologiaToCategoria(metodologia), [metodologia])
+  const baseGeoFilters = useMemo(() => buildGeoResumenBaseFilters(filters, metodologia), [filters, metodologia])
 
+  const { data: regionesData } = useResumenGeo('region', baseGeoFilters)
   const { data: departamentosData } = useResumenGeo('departamento', baseGeoFilters)
   const { data: municipiosData } = useResumenGeo(
     'municipio',
@@ -67,6 +97,10 @@ export function FilterPanel() {
     municipio != null
   )
 
+  const regionOptions = useMemo(
+    () => [...(regionesData?.features ?? [])].sort((a, b) => a.properties.nombre.localeCompare(b.properties.nombre)),
+    [regionesData]
+  )
   const departamentoOptions = useMemo(
     () => [...(departamentosData?.features ?? [])].sort((a, b) => a.properties.nombre.localeCompare(b.properties.nombre)),
     [departamentosData]
@@ -80,35 +114,136 @@ export function FilterPanel() {
     [veredasData]
   )
 
+  // Los recuadros condicionales solo hacen fetch de sus propias opciones
+  // cuando esa metodología está activa.
+  const { data: cosData } = useCosPorProfundidad()
+  const { data: analizadorData } = useResumenCategorico('analizador', {}, metodologia === 'flujos')
+  const { data: condicionLuzData } = useResumenCategorico('condicion_luz', {}, metodologia === 'flujos')
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Metodología: siempre visible/expandido, es el filtro principal que
+          determina qué categoría de dato pinta el mapa y qué recuadro
+          condicional (Biomasa/COS/Flujos) aparece. */}
+      <p className="text-xs text-fg-muted font-semibold uppercase tracking-wider">Metodología</p>
       <Select
-        label="Año"
-        value={filters.year != null ? String(filters.year) : ''}
-        options={[
-          { value: '', label: 'Todos los años' },
-          ...years.map((y) => ({ value: String(y), label: String(y) })),
-        ]}
-        onChange={(v) => setYear(v ? Number(v) : null)}
+        label="Metodología"
+        value={metodologia}
+        options={METODOLOGIA_OPTIONS}
+        onChange={(v) => setMetodologia(v as Metodologia)}
       />
-      <Select
-        label="Gas"
-        value={filters.gas}
-        options={GAS_OPTIONS}
-        onChange={(v) => setGas(v as GasType)}
-      />
-      <Select
-        label="Proyecto"
-        value={filters.proyectoId != null ? String(filters.proyectoId) : ''}
-        options={[
-          { value: '', label: 'Todos los proyectos' },
-          ...proyectos.map((p) => ({ value: String(p.id), label: p.nombre })),
-        ]}
-        onChange={(v) => setProyecto(v ? Number(v) : null)}
-      />
+      {/* Gas es un sub-filtro exclusivo de la categoría "flujos" -biomasa y
+          cos no lo soportan en el backend-. */}
+      {categoria === 'flujos' && (
+        <Select
+          label="Gas"
+          value={filters.gas}
+          options={GAS_OPTIONS}
+          onChange={(v) => setGas(v as GasType)}
+        />
+      )}
 
-      <div className="border-t border-border pt-4 flex flex-col gap-4">
-        <p className="text-xs text-fg-muted font-semibold uppercase tracking-wider">Ubicación</p>
+      {metodologia === 'biomasa' && (
+        <div className="flex flex-col gap-4">
+          <Select
+            label="Agrupar por"
+            value={biomasaDimension}
+            options={BIOMASA_DIMENSION_OPTIONS}
+            onChange={(v) => setBiomasaDimension(v as DimensionBiomasa)}
+          />
+          <Select
+            label="DAP"
+            value=""
+            disabled
+            options={[{ value: '', label: 'Próximamente' }]}
+            onChange={() => {}}
+          />
+        </div>
+      )}
+
+      {metodologia === 'cos' && (
+        <div className="flex flex-col gap-4">
+          <Select
+            label="Profundidad de muestra"
+            value={cosProfundidad ?? ''}
+            options={[
+              { value: '', label: 'Todos los rangos' },
+              ...(cosData?.resultados ?? []).map((r) => ({
+                value: r.rango_profundidad,
+                label: r.rango_profundidad,
+              })),
+            ]}
+            onChange={(v) => setCosProfundidad(v || null)}
+          />
+        </div>
+      )}
+
+      {metodologia === 'flujos' && (
+        <div className="flex flex-col gap-4">
+          <Select
+            label="Analizador"
+            value={flujosAnalizadorId != null ? String(flujosAnalizadorId) : ''}
+            options={[
+              { value: '', label: 'Todos los analizadores' },
+              ...(analizadorData?.resultados ?? []).map((r) => ({ value: String(r.id), label: r.nombre })),
+            ]}
+            onChange={(v) => setFlujosAnalizadorId(v || null)}
+          />
+          <Select
+            label="Día / noche"
+            value={flujosCondicionLuzId != null ? String(flujosCondicionLuzId) : ''}
+            options={[
+              { value: '', label: 'Todas' },
+              ...(condicionLuzData?.resultados ?? []).map((r) => ({ value: String(r.id), label: r.nombre })),
+            ]}
+            onChange={(v) => setFlujosCondicionLuzId(v || null)}
+          />
+        </div>
+      )}
+
+      <Collapsible title="Temporal">
+        <Select
+          label="Año"
+          value={filters.year != null ? String(filters.year) : ''}
+          options={[
+            { value: '', label: 'Todos los años' },
+            ...years.map((y) => ({ value: String(y), label: String(y) })),
+          ]}
+          onChange={(v) => setYear(v ? Number(v) : null)}
+        />
+        <Select
+          label="Fecha (año - día)"
+          value=""
+          disabled
+          options={[{ value: '', label: 'Próximamente' }]}
+          onChange={() => {}}
+        />
+      </Collapsible>
+
+      <Collapsible title="Espacial">
+        <Select
+          label="Proyecto / Entidad"
+          value={filters.proyectoId != null ? String(filters.proyectoId) : ''}
+          options={[
+            { value: '', label: 'Todos los proyectos' },
+            ...proyectos.map((p) => ({ value: String(p.id), label: p.nombre })),
+          ]}
+          onChange={(v) => setProyecto(v ? Number(v) : null)}
+        />
+
+        <Select
+          label="Región"
+          value={region != null ? String(region.id) : ''}
+          options={[
+            { value: '', label: 'Todas las regiones' },
+            ...regionOptions.map((f) => ({ value: String(f.properties.id), label: f.properties.nombre })),
+          ]}
+          onChange={(v) => {
+            if (!v) return setRegion(null)
+            const f = regionOptions.find((f) => String(f.properties.id) === v)
+            if (f) setRegion({ id: f.properties.id, nombre: f.properties.nombre })
+          }}
+        />
 
         <Select
           label="Departamento"
@@ -139,7 +274,7 @@ export function FilterPanel() {
         />
 
         <Select
-          label="Vereda"
+          label="Vereda / Casco urbano"
           value={vereda != null ? String(vereda.id) : ''}
           options={[
             { value: '', label: municipio ? 'Todas las veredas' : 'Elegí un municipio primero' },
@@ -151,7 +286,24 @@ export function FilterPanel() {
             if (f) setVereda({ id: f.properties.id, nombre: f.properties.nombre })
           }}
         />
-      </div>
+      </Collapsible>
+
+      <Collapsible title="Ambiental">
+        <Select
+          label="Ecosistema / Cobertura"
+          value=""
+          disabled
+          options={[{ value: '', label: 'Próximamente' }]}
+          onChange={() => {}}
+        />
+        <Select
+          label="Estado de conservación"
+          value=""
+          disabled
+          options={[{ value: '', label: 'Próximamente' }]}
+          onChange={() => {}}
+        />
+      </Collapsible>
     </div>
   )
 }
