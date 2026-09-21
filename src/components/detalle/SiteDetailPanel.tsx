@@ -4,6 +4,12 @@ import { useDatosProyecto } from '@/hooks/useDatosProyecto'
 import { datosService } from '@/services/datos.service'
 import { downloadFile } from '@/utils/download'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useAppStore } from '@/store/useAppStore'
+import { metodologiaToCategoria } from '@/utils/geoFilters'
+import { CATEGORIA_LABELS } from '@/utils/formatters'
+import { EmissionTrendChart } from '@/components/charts/EmissionTrendChart'
+import { BiomasaProduccionScatter } from '@/components/charts/BiomasaProduccionScatter'
+import { CosProfundidadChart } from '@/components/charts/CosProfundidadChart'
 import type { SitioFeature, VistaDatos } from '@/types'
 
 interface Props {
@@ -38,7 +44,11 @@ const MODELO_COLORS = [
 
 export function SiteDetailPanel({ sitio, onClose }: Props) {
   const token = useAuthStore((s) => s.token)
-  const [tablaOpen, setTablaOpen] = useState(true)
+  const metodologia = useAppStore((s) => s.metodologia)
+  const categoria = useMemo(() => metodologiaToCategoria(metodologia), [metodologia])
+  // Un solo panel con pestañas de sección (Gráficas / Datos detallados) en vez
+  // de dos bloques apilados: así el panel no ocupa toda la pantalla.
+  const [activeSection, setActiveSection] = useState<'graficas' | 'datos'>('graficas')
   const proyectosDelSitio = sitio.properties.proyectos
   const [proyectoId, setProyectoId] = useState<number | null>(proyectosDelSitio[0]?.id ?? null)
   const [activeTab, setActiveTab] = useState(DETALLE_TABS[0].key)
@@ -57,7 +67,7 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
     setFiltrosInput({})
     setFiltros({})
     setOffset(0)
-    setTablaOpen(true)
+    setActiveSection('graficas')
     setExportError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sitio.properties.id])
@@ -145,164 +155,178 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
   const total = data?.total ?? 0
   const nColumnas = data?.columnas.length ?? 0
 
+  const sectionTabClass = (key: 'graficas' | 'datos') =>
+    `px-3 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-t-md transition-colors ${
+      activeSection === key
+        ? 'bg-surface text-fg border border-border border-b-0'
+        : 'text-fg-muted hover:text-fg'
+    }`
+
   return (
-    <div className="flex flex-col max-h-[70vh]">
-      {proyectoId == null ? (
-        <div className="flex items-center justify-between px-4 py-2 text-sm text-fg-subtle">
-          <span>Este sitio no tiene un proyecto asociado.</span>
+    <div className="flex flex-col max-h-[70vh] overflow-hidden bg-panel">
+      {/* Un solo panel con pestañas de sección arriba (en vez de dos bloques
+          apilados): Gráficas no depende de proyectoId -se consulta por
+          sitio directamente-, Datos detallados sí. */}
+      <div className="w-full flex items-center justify-between px-4 pt-2 border-b border-border">
+        <div className="flex gap-1">
+          <button onClick={() => setActiveSection('graficas')} className={sectionTabClass('graficas')}>
+            Gráficas
+          </button>
+          <button onClick={() => setActiveSection('datos')} className={sectionTabClass('datos')}>
+            Datos detallados
+          </button>
+        </div>
+        <div className="flex items-center gap-3 pb-2">
+          {activeSection === 'datos' && proyectoId != null && proyectosDelSitio.length > 1 && (
+            <select
+              value={proyectoId ?? ''}
+              onChange={(e) => setProyectoId(Number(e.target.value))}
+              className="bg-surface border border-border text-fg text-xs rounded-md px-2 py-1"
+            >
+              {proyectosDelSitio.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          )}
+          {activeSection === 'datos' && proyectoId != null && (
+            <>
+              {exportError && <span className="text-xs text-red-500">{exportError}</span>}
+              <button
+                onClick={handleDescargarExcel}
+                disabled={exportando}
+                className="px-2.5 py-1 text-xs font-medium border border-border rounded-md text-fg hover:bg-surface transition-colors disabled:opacity-50"
+              >
+                {exportando ? 'Descargando…' : '⭳ Descargar Excel'}
+              </button>
+            </>
+          )}
           <button onClick={onClose} className="text-base hover:text-fg transition-colors" aria-label="Cerrar">✕</button>
         </div>
-      ) : (
-          <div className="flex flex-col overflow-hidden divide-y divide-border">
-            {/* Sección con fondo sólido (bg-panel, sin alpha): tabs, contador y tabla, para que el mapa no transparente detrás. */}
-            <div className="flex flex-col overflow-hidden bg-panel">
-              <div className="w-full flex items-center justify-between px-4 py-2 text-xs text-fg-muted">
+      </div>
+
+      {activeSection === 'graficas' && (
+        <div className="overflow-auto px-4 py-4">
+          <p className="text-xs text-fg-muted font-semibold uppercase tracking-wider mb-2">{CATEGORIA_LABELS[categoria]}</p>
+          {categoria === 'flujos' && <EmissionTrendChart sitioId={sitioId} />}
+          {categoria === 'biomasa' && <BiomasaProduccionScatter sitioId={sitioId} />}
+          {categoria === 'cos' && <CosProfundidadChart sitioId={sitioId} />}
+        </div>
+      )}
+
+      {activeSection === 'datos' && (
+        proyectoId == null ? (
+          <div className="px-4 py-4 text-sm text-fg-subtle">Este sitio no tiene un proyecto asociado.</div>
+        ) : (
+          <>
+            <div className="flex gap-1 px-4 pt-2 border-b border-border">
+              {tabsVisibles.map((t) => (
                 <button
-                  onClick={() => setTablaOpen((o) => !o)}
-                  className="flex items-center gap-2 hover:text-fg transition-colors"
+                  key={t.key}
+                  onClick={() => { setActiveTab(t.key); setOffset(0) }}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
+                    activeTab === t.key
+                      ? 'bg-surface text-fg border border-border border-b-0'
+                      : 'text-fg-muted hover:text-fg'
+                  }`}
                 >
-                  <span className="font-semibold uppercase tracking-wider">Datos detallados</span>
-                  <span className="text-base">{tablaOpen ? '▼' : '▲'}</span>
+                  {t.label}
                 </button>
-                <div className="flex items-center gap-3">
-                  {proyectosDelSitio.length > 1 && (
-                    <select
-                      value={proyectoId ?? ''}
-                      onChange={(e) => setProyectoId(Number(e.target.value))}
-                      className="bg-surface border border-border text-fg text-xs rounded-md px-2 py-1"
-                    >
-                      {proyectosDelSitio.map((p) => (
-                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                      ))}
-                    </select>
-                  )}
-                  {exportError && <span className="text-xs text-red-500">{exportError}</span>}
-                  <button
-                    onClick={handleDescargarExcel}
-                    disabled={exportando}
-                    className="px-2.5 py-1 text-xs font-medium border border-border rounded-md text-fg hover:bg-surface transition-colors disabled:opacity-50"
-                  >
-                    {exportando ? 'Descargando…' : '⭳ Descargar Excel'}
-                  </button>
-                  <button onClick={onClose} className="text-base hover:text-fg transition-colors" aria-label="Cerrar">✕</button>
-                </div>
-              </div>
-
-              {tablaOpen && (
-                <>
-                  <div className="flex gap-1 px-4 border-b border-border">
-                    {tabsVisibles.map((t) => (
-                      <button
-                        key={t.key}
-                        onClick={() => { setActiveTab(t.key); setOffset(0) }}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-t-md transition-colors ${
-                          activeTab === t.key
-                            ? 'bg-surface text-fg border border-border border-b-0'
-                            : 'text-fg-muted hover:text-fg'
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                    {!tabsVisibles.length && !isLoading && (
-                      <span className="text-xs text-fg-subtle py-1.5">Este sitio todavía no tiene datos importados.</span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between px-4 py-2 text-xs text-fg-muted">
-                    <span>{total.toLocaleString('es-CO')} registros · {nColumnas} columnas</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        disabled={offset === 0}
-                        onClick={() => setOffset((o) => Math.max(0, o - LIMITE))}
-                        className="px-2 py-1 border border-border rounded disabled:opacity-40"
-                      >
-                        ‹ Anterior
-                      </button>
-                      <span>{total === 0 ? 0 : offset + 1}–{Math.min(offset + LIMITE, total)}</span>
-                      <button
-                        disabled={offset + LIMITE >= total}
-                        onClick={() => setOffset((o) => o + LIMITE)}
-                        className="px-2 py-1 border border-border rounded disabled:opacity-40"
-                      >
-                        Siguiente ›
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Alto fijo (no depende del número de filas) para que la tabla siempre
-                      haga scroll interno en vez de empujar la gráfica de arriba fuera de vista. */}
-                  <div className="overflow-auto px-4 pb-4 h-[40vh]">
-                  {isLoading ? (
-                    <div className="text-sm text-fg-subtle p-4">Cargando…</div>
-                  ) : !data?.columnas.length ? (
-                    <div className="text-sm text-fg-subtle p-4">Sin datos para este sitio.</div>
-                  ) : (
-                    <table className="min-w-full border-collapse text-xs bg-panel">
-                      <thead className="sticky top-0 bg-panel z-10">
-                        <tr>
-                          {gruposModelo.map((g) => (
-                            <th
-                              key={g.modelo}
-                              colSpan={g.colSpan}
-                              className="px-2 py-1 text-white font-semibold text-[11px] uppercase tracking-wide"
-                              style={{ backgroundColor: colorPorModelo.get(g.modelo) }}
-                            >
-                              {g.modelo}
-                            </th>
-                          ))}
-                        </tr>
-                        <tr>
-                          {data.columnas.map((c) => (
-                            <th key={c.clave} className="px-2 py-1 border border-border bg-surface text-fg font-medium text-left whitespace-nowrap">
-                              {c.verbose_name}
-                            </th>
-                          ))}
-                        </tr>
-                        <tr>
-                          {data.columnas.map((c) =>
-                            // El gas ya queda fijo por la pestaña (CO2/CH4): no tiene sentido
-                            // dejarlo editable acá, se ignoraría igual.
-                            c.clave === GAS_COLUMNA && tab.gasFiltro ? (
-                              <th key={c.clave} className="px-1 py-1 border border-border bg-surface" />
-                            ) : (
-                              <th key={c.clave} className="px-1 py-1 border border-border bg-surface">
-                                <input
-                                  value={filtrosInput[c.clave] ?? ''}
-                                  onChange={(e) => setFiltrosInput((f) => ({ ...f, [c.clave]: e.target.value }))}
-                                  placeholder="filtrar…"
-                                  className="w-full min-w-[80px] bg-transparent text-fg text-xs px-1 py-0.5 border border-border rounded focus:outline-none focus:ring-1 focus:ring-brand-teal"
-                                />
-                              </th>
-                            )
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className={isFetching ? 'opacity-50' : ''}>
-                        {data.filas.map((fila, i) => (
-                          <tr key={i} className={i % 2 === 1 ? 'bg-surface' : 'bg-panel'}>
-                            {data.columnas.map((c) => (
-                              <td key={c.clave} className="px-2 py-1 border border-border text-fg-muted whitespace-nowrap">
-                                {fila[c.clave] ?? '—'}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                        {!data.filas.length && (
-                          <tr className="bg-panel">
-                            <td colSpan={data.columnas.length} className="px-2 py-4 text-center text-fg-subtle">
-                              Sin resultados para estos filtros.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  )}
-                  </div>
-                </>
+              ))}
+              {!tabsVisibles.length && !isLoading && (
+                <span className="text-xs text-fg-subtle py-1.5">Este sitio todavía no tiene datos importados.</span>
               )}
             </div>
-          </div>
+
+            <div className="flex items-center justify-between px-4 py-2 text-xs text-fg-muted">
+              <span>{total.toLocaleString('es-CO')} registros · {nColumnas} columnas</span>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={offset === 0}
+                  onClick={() => setOffset((o) => Math.max(0, o - LIMITE))}
+                  className="px-2 py-1 border border-border rounded disabled:opacity-40"
+                >
+                  ‹ Anterior
+                </button>
+                <span>{total === 0 ? 0 : offset + 1}–{Math.min(offset + LIMITE, total)}</span>
+                <button
+                  disabled={offset + LIMITE >= total}
+                  onClick={() => setOffset((o) => o + LIMITE)}
+                  className="px-2 py-1 border border-border rounded disabled:opacity-40"
+                >
+                  Siguiente ›
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-auto px-4 pb-4 h-[40vh]">
+            {isLoading ? (
+              <div className="text-sm text-fg-subtle p-4">Cargando…</div>
+            ) : !data?.columnas.length ? (
+              <div className="text-sm text-fg-subtle p-4">Sin datos para este sitio.</div>
+            ) : (
+              <table className="min-w-full border-collapse text-xs bg-panel">
+                <thead className="sticky top-0 bg-panel z-10">
+                  <tr>
+                    {gruposModelo.map((g) => (
+                      <th
+                        key={g.modelo}
+                        colSpan={g.colSpan}
+                        className="px-2 py-1 text-white font-semibold text-[11px] uppercase tracking-wide"
+                        style={{ backgroundColor: colorPorModelo.get(g.modelo) }}
+                      >
+                        {g.modelo}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {data.columnas.map((c) => (
+                      <th key={c.clave} className="px-2 py-1 border border-border bg-surface text-fg font-medium text-left whitespace-nowrap">
+                        {c.verbose_name}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {data.columnas.map((c) =>
+                      // El gas ya queda fijo por la pestaña (CO2/CH4): no tiene sentido
+                      // dejarlo editable acá, se ignoraría igual.
+                      c.clave === GAS_COLUMNA && tab.gasFiltro ? (
+                        <th key={c.clave} className="px-1 py-1 border border-border bg-surface" />
+                      ) : (
+                        <th key={c.clave} className="px-1 py-1 border border-border bg-surface">
+                          <input
+                            value={filtrosInput[c.clave] ?? ''}
+                            onChange={(e) => setFiltrosInput((f) => ({ ...f, [c.clave]: e.target.value }))}
+                            placeholder="filtrar…"
+                            className="w-full min-w-[80px] bg-transparent text-fg text-xs px-1 py-0.5 border border-border rounded focus:outline-none focus:ring-1 focus:ring-brand-teal"
+                          />
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody className={isFetching ? 'opacity-50' : ''}>
+                  {data.filas.map((fila, i) => (
+                    <tr key={i} className={i % 2 === 1 ? 'bg-surface' : 'bg-panel'}>
+                      {data.columnas.map((c) => (
+                        <td key={c.clave} className="px-2 py-1 border border-border text-fg-muted whitespace-nowrap">
+                          {fila[c.clave] ?? '—'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  {!data.filas.length && (
+                    <tr className="bg-panel">
+                      <td colSpan={data.columnas.length} className="px-2 py-4 text-center text-fg-subtle">
+                        Sin resultados para estos filtros.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+            </div>
+          </>
+        )
       )}
     </div>
   )

@@ -12,8 +12,12 @@ import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { GAS_COLORS, formatUnidad } from '@/utils/formatters'
 
-export function EmissionTrendChart() {
-  const { data: series, isLoading } = useSeries()
+interface Props {
+  sitioId?: number
+}
+
+export function EmissionTrendChart({ sitioId }: Props = {}) {
+  const { data: series, isLoading } = useSeries(sitioId != null ? { sitio: sitioId } : {})
   const gas = useAppStore((s) => s.filters.gas)
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const tickColor = isDark ? '#94a3b8' : '#64748b'

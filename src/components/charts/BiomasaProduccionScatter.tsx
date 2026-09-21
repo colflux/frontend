@@ -2,8 +2,12 @@ import { ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer } fro
 import { useBiomasaProduccion } from '@/hooks/useBiomasaProduccion'
 import { useThemeStore } from '@/store/useThemeStore'
 
-export function BiomasaProduccionScatter() {
-  const { data, isLoading } = useBiomasaProduccion()
+interface Props {
+  sitioId?: number
+}
+
+export function BiomasaProduccionScatter({ sitioId }: Props = {}) {
+  const { data, isLoading } = useBiomasaProduccion(undefined, sitioId)
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const tickColor = isDark ? '#94a3b8' : '#64748b'
 

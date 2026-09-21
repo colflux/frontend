@@ -24,10 +24,11 @@ export const reportesService = {
   },
 
   getBiomasaProduccion: async (
-    params: { proyecto?: number } = {}
+    params: { proyecto?: number; sitio?: number } = {}
   ): Promise<BiomasaProduccionResponse> => {
     const search = new URLSearchParams()
     if (params.proyecto != null) search.set('proyecto', String(params.proyecto))
+    if (params.sitio != null) search.set('sitio', String(params.sitio))
     const query = search.toString()
     const url = `${REPORTES_API_BASE}/biomasa/produccion/${query ? `?${query}` : ''}`
     const res = await fetch(url)
@@ -36,10 +37,11 @@ export const reportesService = {
   },
 
   getCosPorProfundidad: async (
-    params: { proyecto?: number } = {}
+    params: { proyecto?: number; sitio?: number } = {}
   ): Promise<CosProfundidadResponse> => {
     const search = new URLSearchParams()
     if (params.proyecto != null) search.set('proyecto', String(params.proyecto))
+    if (params.sitio != null) search.set('sitio', String(params.sitio))
     const query = search.toString()
     const url = `${REPORTES_API_BASE}/cos/${query ? `?${query}` : ''}`
     const res = await fetch(url)

@@ -314,20 +314,29 @@ export function GeoMap({ onSelectSitio }: Props) {
     const color = categoria === 'flujos' ? (GAS_COLORS[filters.gas] ?? GAS_COLORS.CO2) : CATEGORIA_COLORS[categoria]
     const etiqueta = categoria === 'flujos' ? filters.gas : CATEGORIA_LABELS[categoria]
 
-    const features = filters.proyectoId
+    const featuresConProyecto = filters.proyectoId
       ? sitios.features.filter((f) =>
           f.properties.proyectos.some((p) => p.id === filters.proyectoId)
         )
       : sitios.features
+
+    // Sitios sin datos de la categoría/sub-filtro activo no se pintan en el
+    // mapa -mostrarlos atenuados generaba confusión, parecía que sí había
+    // datos ahí-.
+    const features = featuresConProyecto.filter((f) => {
+      const p = f.properties
+      return categoria === 'flujos'
+        ? p.resumen_por_gas?.[filters.gas] != null
+        : categoria === 'biomasa'
+          ? p.resumen_biomasa != null
+          : p.resumen_cos != null
+    })
 
     features.forEach((feature) => {
       const [lng, lat] = feature.geometry.coordinates
       const p = feature.properties
       const resumenActivo =
         categoria === 'flujos' ? p.resumen_por_gas?.[filters.gas] : categoria === 'biomasa' ? p.resumen_biomasa : p.resumen_cos
-      // Sitios sin datos de la categoría seleccionada se pintan atenuados en
-      // vez del color propio, para no sugerir que ahí también se midió eso.
-      const colorSitio = resumenActivo ? color : '#94a3b8'
 
       const el = document.createElement('div')
       el.style.cssText = `
@@ -335,9 +344,8 @@ export function GeoMap({ onSelectSitio }: Props) {
         height: 14px;
         border-radius: 50% 50% 50% 0;
         transform: rotate(-45deg);
-        background: ${colorSitio};
+        background: ${color};
         border: 2px solid #0f172a;
-        opacity: ${resumenActivo ? 1 : 0.45};
         cursor: pointer;
       `
       const proyectos = p.proyectos.map((pr) => pr.nombre).join(', ') || '—'

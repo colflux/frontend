@@ -6,8 +6,12 @@ import { useThemeStore } from '@/store/useThemeStore'
 // Marrón oscuro→claro para sugerir profundidad creciente del perfil de suelo.
 const PROFUNDIDAD_COLORS = ['#8a5a3c', '#7a4d33', '#6a402a', '#5a3321', '#4a2618', '#3a1a0f']
 
-export function CosProfundidadChart() {
-  const { data, isLoading } = useCosPorProfundidad()
+interface Props {
+  sitioId?: number
+}
+
+export function CosProfundidadChart({ sitioId }: Props = {}) {
+  const { data, isLoading } = useCosPorProfundidad(undefined, sitioId)
   // "Profundidad de muestra" del recuadro de filtros de COS resalta el rango
   // elegido en vez de recargar datos: el backend ya trae todos los rangos
   // en una sola respuesta.
