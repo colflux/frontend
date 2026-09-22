@@ -33,7 +33,7 @@ const REDES = [
 
 export function Footer() {
   return (
-    <footer className="bg-brand-teal-dark dark:bg-surface text-white mt-auto">
+    <footer className="bg-brand-teal-dark dark:bg-surface dark:border-t dark:border-white/10 text-white mt-auto">
       <div className="max-w-6xl mx-auto px-6 py-12 grid gap-10 md:grid-cols-3">
         <div>
           <img src={logo} alt="COLFLUX" className="h-10 w-auto" />
@@ -74,16 +74,14 @@ export function Footer() {
             ))}
           </ul>
 
-          <p className="mt-6 text-sm font-semibold uppercase tracking-wide text-white/90">
-            ¿Tienes preguntas?
-          </p>
           <a
-            href="mailto:colflux.plataforma@gmail.com"
-            className="mt-3 inline-block bg-brand-yellow hover:bg-brand-yellow-dark text-brand-brown px-4 py-2 rounded-full text-sm font-semibold transition-colors"
+            href="https://docs.google.com/forms/d/1iZiOCuICWl6gJ6dctnz2YTZnvz64F8yqCtilJjT2HD0/edit"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-6 inline-block bg-brand-yellow hover:bg-brand-yellow-dark text-brand-brown px-4 py-2 rounded-full text-sm font-semibold transition-colors"
           >
             Contáctanos
           </a>
-          <p className="mt-2 text-xs text-white/60">colflux.plataforma@gmail.com</p>
         </div>
       </div>
 

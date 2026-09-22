@@ -17,6 +17,7 @@ import corredorJaguar from '@/assets/aliados/corredor-jaguar.png'
 import sobreProyecto from '@/assets/Chorrera.jpeg'
 import monitoreoImg from '@/assets/ecosistemas/paramo-1.jpg'
 import comunidadesImg from '@/assets/ecosistemas/paramo-2.jpg'
+import faqImg from '@/assets/ecosistemas/paramo-3.jpg'
 
 const EXPLORA = [
   {
@@ -24,7 +25,7 @@ const EXPLORA = [
     title: '¿Cómo medimos el carbono?',
     desc: 'Conoce los sensores y equipos instalados en cada sitio, cómo se registran los flujos de CO₂ y CH₄, y la metodología usada para procesar las mediciones.',
     cta: 'Ver monitoreo',
-    to: '/mapas',
+    to: 'https://colflux.github.io/context/conocimiento/como-se-mide-el-carbono/',
     img: monitoreoImg,
   },
   {
@@ -32,16 +33,16 @@ const EXPLORA = [
     title: 'Trabajo con las comunidades',
     desc: 'Las comunidades locales acompañan el trabajo de campo, comparten su conocimiento del territorio y reportan lo que observan en páramos y humedales.',
     cta: 'Conocer más',
-    to: '/reportar',
+    to: 'https://www.javeriana.edu.co/pesquisa/carbono-cambio-climatico-colflux/',
     img: comunidadesImg,
   },
   {
-    tag: 'DATOS',
-    title: 'Consulta los datos',
-    desc: 'Explora los sitios en el mapa interactivo, revisa tendencias en el dashboard de indicadores y descarga la información para tus propios análisis.',
-    cta: 'Ir a los datos',
-    to: '/dashboard',
-    img: null,
+    tag: 'PREGUNTAS',
+    title: '¿Tienes dudas?',
+    desc: 'Encuentra respuestas a las preguntas más frecuentes sobre biomasa, carbono orgánico del suelo, flujos de GEI y otros temas del proyecto.',
+    cta: 'Ir a las FAQ',
+    to: 'https://colflux.github.io/context/faq/',
+    img: faqImg,
   },
 ]
 
@@ -80,7 +81,7 @@ export function Home() {
         element: '[data-tour="home-explora"]',
         popover: {
           title: 'Explora los datos',
-          description: 'Aquí entras al mapa interactivo con todos los sitios monitoreados.',
+          description: 'Aquí entras al dashboard de indicadores con todos los datos recolectados.',
         },
       },
       {
@@ -118,7 +119,7 @@ export function Home() {
             </h1>
             <div className="mt-8 flex gap-3">
               <Link
-                to="/mapas"
+                to="/dashboard"
                 data-tour="home-explora"
                 className="bg-panel border border-border text-fg px-6 py-3 rounded-full font-semibold hover:border-brand-teal transition-colors"
               >
@@ -171,13 +172,15 @@ export function Home() {
           </p>
           <h2 className="mt-2 text-3xl font-bold text-fg">¿Qué es COLFLUX?</h2>
           <p className="mt-4 text-fg-muted leading-relaxed">
-            COLFLUX es una plataforma que integra mediciones de flujos de carbono (CO₂ y CH₄) en
-            páramos y humedales de Colombia. Reúne en un solo lugar los datos de campo, la
-            información de los sensores y el conocimiento de las comunidades.
+            COLFLUX es una plataforma abierta para consultar información sobre el carbono en
+            páramos, humedales, sabanas y morichales de Colombia. Reúne datos de contenidos de
+            carbono y flujos de CO₂ y CH₄ medidos en 9 Ventanas Locales de las regiones Centro
+            Oriente, Orinoquía y Amazonía.
           </p>
           <p className="mt-4 text-fg-muted leading-relaxed">
-            Su objetivo es entender cuánto carbono capturan y emiten estos ecosistemas para apoyar
-            decisiones de conservación basadas en evidencia.
+            Aquí puedes explorar mapas, datos y material educativo sobre estos ecosistemas y su
+            papel frente al cambio climático. COLFLUX no es un proyecto de mercados de carbono y no
+            modifica la tenencia de la tierra ni las prácticas de las comunidades.
           </p>
         </div>
         <img
@@ -193,48 +196,67 @@ export function Home() {
           Conoce cómo medimos, con quién trabajamos y dónde encontrar los datos.
         </p>
         <div data-tour="home-explora-colflux" className="mt-8 grid md:grid-cols-3 gap-6">
-          {EXPLORA.map((item) => (
-            <Link
-              key={item.tag}
-              to={item.to}
-              className="bg-panel border border-border rounded-xl overflow-hidden hover:border-brand-teal transition-colors group flex flex-col"
-            >
-              {item.img ? (
-                <img src={item.img} alt="" className="h-40 w-full object-cover" />
-              ) : (
-                <div className="h-40 w-full bg-brand-teal-light flex items-center justify-center text-4xl">
-                  📈
+          {EXPLORA.map((item) => {
+            const isExternal = item.to.startsWith('http')
+            const cardClassName =
+              'bg-panel border border-border rounded-xl overflow-hidden hover:border-brand-teal transition-colors group flex flex-col'
+            const cardContent = (
+              <>
+                {item.img ? (
+                  <img src={item.img} alt="" className="h-40 w-full object-cover" />
+                ) : (
+                  <div className="h-40 w-full bg-brand-teal-light flex items-center justify-center text-4xl">
+                    📈
+                  </div>
+                )}
+                <div className="p-6 flex-1 flex flex-col">
+                  <p className="text-xs font-semibold tracking-wide text-brand-teal uppercase">
+                    {item.tag}
+                  </p>
+                  <h3 className="mt-2 font-semibold text-fg group-hover:text-brand-teal dark:group-hover:text-brand-teal-bright">
+                    {item.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-fg-muted flex-1">{item.desc}</p>
+                  <span className="mt-4 text-sm font-semibold text-brand-teal">{item.cta} →</span>
                 </div>
-              )}
-              <div className="p-6 flex-1 flex flex-col">
-                <p className="text-xs font-semibold tracking-wide text-brand-teal uppercase">
-                  {item.tag}
-                </p>
-                <h3 className="mt-2 font-semibold text-fg group-hover:text-brand-teal dark:group-hover:text-brand-teal-bright">
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-sm text-fg-muted flex-1">{item.desc}</p>
-                <span className="mt-4 text-sm font-semibold text-brand-teal">{item.cta} →</span>
-              </div>
-            </Link>
-          ))}
+              </>
+            )
+
+            return isExternal ? (
+              <a
+                key={item.tag}
+                href={item.to}
+                target="_blank"
+                rel="noreferrer"
+                className={cardClassName}
+              >
+                {cardContent}
+              </a>
+            ) : (
+              <Link key={item.tag} to={item.to} className={cardClassName}>
+                {cardContent}
+              </Link>
+            )
+          })}
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-6 py-12 w-full dark:bg-white dark:rounded-2xl">
-        <p className="text-center text-sm font-semibold tracking-wide text-fg-muted dark:text-slate-500 uppercase">
+      <section className="max-w-6xl mx-auto px-6 py-12 w-full">
+        <p className="text-center text-sm font-semibold tracking-wide text-fg-muted uppercase">
           Aliados
         </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
-          {ALIADOS.map((aliado) => (
-            <img
-              key={aliado.name}
-              src={aliado.src}
-              alt={aliado.name}
-              title={aliado.name}
-              className="h-12 w-auto object-contain grayscale-0"
-            />
-          ))}
+        <div className="mt-6 dark:bg-white dark:rounded-2xl dark:py-8 dark:px-6">
+          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
+            {ALIADOS.map((aliado) => (
+              <img
+                key={aliado.name}
+                src={aliado.src}
+                alt={aliado.name}
+                title={aliado.name}
+                className="h-12 w-auto object-contain grayscale-0"
+              />
+            ))}
+          </div>
         </div>
       </section>
     </div>
