@@ -11,8 +11,9 @@ const LINKS = [
   { to: '/', label: 'Inicio' },
   { to: '/mapas', label: 'Mapas' },
   { to: '/dashboard', label: 'Datos' },
-  { to: '/educacion', label: 'Educación' },
 ]
+
+const WIKI_URL = 'https://colflux.github.io/context/'
 
 const ADMIN_LINKS = [
   { to: '/data', label: 'Gestión de datos' },
@@ -58,6 +59,12 @@ export function Navbar() {
             {link.label}
           </NavLink>
         ))}
+        <a
+          href={WIKI_URL}
+          className="px-3 py-1.5 rounded-md text-sm font-medium text-fg-muted hover:text-fg hover:bg-surface transition-colors"
+        >
+          Wiki
+        </a>
         {tieneNivel('reportador') ? (
           <NavLink
             to="/reportar"
