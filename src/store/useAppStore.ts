@@ -48,7 +48,7 @@ export const useAppStore = create<AppStore>((set) => ({
   setGas: (gas) => set((s) => ({ filters: { ...s.filters, gas } })),
   setProyecto: (proyectoId) => set((s) => ({ filters: { ...s.filters, proyectoId } })),
 
-  metodologia: 'general',
+  metodologia: 'flujos',
   // Cambiar de metodología descarta los filtros condicionales de la anterior,
   // que dejan de ser visibles/aplicables.
   setMetodologia: (metodologia) =>

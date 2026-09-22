@@ -17,7 +17,6 @@ const GAS_OPTIONS: { value: GasType; label: string; disabled?: boolean }[] = [
 ]
 
 const METODOLOGIA_OPTIONS: { value: Metodologia; label: string }[] = [
-  { value: 'general', label: 'General (todas)' },
   { value: 'biomasa', label: 'Biomasa' },
   { value: 'cos', label: 'Carbono orgánico del suelo (COS)' },
   { value: 'flujos', label: 'Flujos de GEI' },

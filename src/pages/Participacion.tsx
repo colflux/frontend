@@ -15,9 +15,10 @@ const CANALES = [
   {
     icon: '📄',
     title: 'Formulario web',
-    desc: 'Completa el formulario',
+    desc: 'Sube tus archivos de datos',
     action: 'Ir al formulario',
     to: '/reportar/formulario',
+    disabled: true,
   },
 ]
 
@@ -51,18 +52,25 @@ export function Participacion() {
 
       <div data-tour="participacion-canales" className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {CANALES.map((c) => (
-          <Card key={c.title} className="flex flex-col items-start gap-2">
+          <Card
+            key={c.title}
+            className={`flex flex-col items-start gap-2 ${c.disabled ? 'opacity-50' : ''}`}
+          >
             <span className="text-xl" aria-hidden>
               {c.icon}
             </span>
             <p className="text-sm font-semibold text-fg">{c.title}</p>
             <p className="text-xs text-fg-muted">{c.desc}</p>
-            <Link
-              to={c.to}
-              className="mt-auto text-xs font-semibold text-brand-teal dark:text-brand-teal-bright hover:underline"
-            >
-              {c.action} →
-            </Link>
+            {c.disabled ? (
+              <span className="mt-auto text-xs font-semibold text-fg-subtle">Próximamente</span>
+            ) : (
+              <Link
+                to={c.to}
+                className="mt-auto text-xs font-semibold text-brand-teal dark:text-brand-teal-bright hover:underline"
+              >
+                {c.action} →
+              </Link>
+            )}
           </Card>
         ))}
       </div>
