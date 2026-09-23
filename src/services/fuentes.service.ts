@@ -12,6 +12,10 @@ async function parseErrorMessage(res: Response, fallback: string): Promise<strin
   return fallback
 }
 
+function authHeaders(token: string) {
+  return { Authorization: `Token ${token}`, 'Content-Type': 'application/json' }
+}
+
 export const fuentesService = {
   listFuentesDropdown: async (proyectoId?: number): Promise<FuentesDropdownResponse> => {
     const url = proyectoId != null
@@ -22,28 +26,31 @@ export const fuentesService = {
     return res.json() as Promise<FuentesDropdownResponse>
   },
 
-  createFuente: async (payload: FuenteDatosPayload): Promise<FuenteDatos> => {
+  createFuente: async (token: string, payload: FuenteDatosPayload): Promise<FuenteDatos> => {
     const res = await fetch(`${API_BASE}/fuentes-datos-crud/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(token),
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
     return res.json() as Promise<FuenteDatos>
   },
 
-  updateFuente: async (id: number, payload: FuenteDatosPayload): Promise<FuenteDatos> => {
+  updateFuente: async (token: string, id: number, payload: FuenteDatosPayload): Promise<FuenteDatos> => {
     const res = await fetch(`${API_BASE}/fuentes-datos-crud/${id}/`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(token),
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
     return res.json() as Promise<FuenteDatos>
   },
 
-  eliminarFuente: async (id: number): Promise<void> => {
-    const res = await fetch(`${API_BASE}/fuentes-datos-crud/${id}/`, { method: 'DELETE' })
+  eliminarFuente: async (token: string, id: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/fuentes-datos-crud/${id}/`, {
+      method: 'DELETE',
+      headers: { Authorization: `Token ${token}` },
+    })
     if (!res.ok && res.status !== 204) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
   },
 
