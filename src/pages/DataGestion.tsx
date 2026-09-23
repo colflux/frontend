@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useFuentesDropdown } from '@/hooks/useFuentesDropdown'
+import { useProyectos } from '@/hooks/useProyectoMutations'
 import { ProyectosTable } from '@/components/data/ProyectosTable'
 import { FuentesTable } from '@/components/data/FuentesTable'
 import { ProyectoDrawer } from '@/components/admin/proyectos/ProyectoDrawer'
@@ -76,6 +77,7 @@ function StatsBar({ fuentes }: { fuentes: FuenteDatos[] }) {
 
 export function DataGestion() {
   const { data, isLoading, isError } = useFuentesDropdown()
+  const { data: proyectosCompletos } = useProyectos()
   const [proyectoFiltro, setProyectoFiltro] = useState('')
   const fuentesRef = useRef<HTMLDivElement>(null)
 
@@ -140,7 +142,7 @@ export function DataGestion() {
       </div>
 
       <div data-tour="data-proyectos">
-        <ProyectosTable proyectos={proyectos} fuentes={fuentes} onVerFuentes={handleVerFuentes} />
+        <ProyectosTable proyectos={proyectosCompletos ?? []} fuentes={fuentes} onVerFuentes={handleVerFuentes} />
       </div>
 
       <div ref={fuentesRef} />

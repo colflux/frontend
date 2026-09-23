@@ -677,6 +677,8 @@ export interface Proyecto {
   objetivo_general: string
   fecha_inicio: string | null
   fecha_fin: string | null
+  instituciones: number[]
+  instituciones_detalle: Institucion[]
 }
 
 export interface ProyectoPayload {
@@ -686,6 +688,7 @@ export interface ProyectoPayload {
   objetivo_general?: string
   fecha_inicio?: string | null
   fecha_fin?: string | null
+  instituciones?: number[]
 }
 
 // ── instituciones (/api/instituciones/) ──────────────────────────────
