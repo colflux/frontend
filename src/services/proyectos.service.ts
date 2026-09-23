@@ -12,14 +12,43 @@ async function parseErrorMessage(res: Response, fallback: string): Promise<strin
   return fallback
 }
 
+function authHeaders(token: string) {
+  return { Authorization: `Token ${token}`, 'Content-Type': 'application/json' }
+}
+
 export const proyectosService = {
-  crearProyecto: async (payload: ProyectoPayload): Promise<Proyecto> => {
+  listProyectos: async (): Promise<Proyecto[]> => {
+    const res = await fetch(`${API_BASE}/proyectos/`)
+    if (!res.ok) throw new Error(`API error ${res.status}`)
+    const data = await res.json()
+    return Array.isArray(data) ? data : (data.results ?? [])
+  },
+
+  crearProyecto: async (token: string, payload: ProyectoPayload): Promise<Proyecto> => {
     const res = await fetch(`${API_BASE}/proyectos/crear/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(token),
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
     return res.json() as Promise<Proyecto>
+  },
+
+  actualizarProyecto: async (token: string, id: number, payload: ProyectoPayload): Promise<Proyecto> => {
+    const res = await fetch(`${API_BASE}/proyectos/${id}/`, {
+      method: 'PATCH',
+      headers: authHeaders(token),
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
+    return res.json() as Promise<Proyecto>
+  },
+
+  eliminarProyecto: async (token: string, id: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/proyectos/${id}/`, {
+      method: 'DELETE',
+      headers: { Authorization: `Token ${token}` },
+    })
+    if (!res.ok && res.status !== 204) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
   },
 }

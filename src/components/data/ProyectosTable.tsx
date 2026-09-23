@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { Paginacion } from '@/components/common/Paginacion'
+import { ConfirmModal } from '@/components/common/ConfirmModal'
 import { useProyectoDrawerStore } from '@/store/useProyectoDrawerStore'
-import type { FuenteDatos, ProyectoResumen } from '@/types'
+import { useEliminarProyecto } from '@/hooks/useProyectoMutations'
+import type { FuenteDatos, Proyecto } from '@/types'
 
 interface Props {
-  proyectos: ProyectoResumen[]
+  proyectos: Proyecto[]
   fuentes: FuenteDatos[]
   onVerFuentes: (proyectoId: number) => void
 }
@@ -15,8 +17,11 @@ const LIMITE = 10
 
 export function ProyectosTable({ proyectos, fuentes, onVerFuentes }: Props) {
   const openProyectoDrawer = useProyectoDrawerStore((s) => s.openDrawer)
+  const eliminarProyecto = useEliminarProyecto()
   const [busqueda, setBusqueda] = useState('')
   const [offset, setOffset] = useState(0)
+  const [proyectoABorrar, setProyectoABorrar] = useState<Proyecto | null>(null)
+  const [errorBorrado, setErrorBorrado] = useState('')
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -34,6 +39,19 @@ export function ProyectosTable({ proyectos, fuentes, onVerFuentes }: Props) {
     return { total: delProyecto.length, completas, pendientes, errores }
   }
 
+  async function handleConfirmarBorrar() {
+    if (!proyectoABorrar) return
+    setErrorBorrado('')
+    try {
+      await eliminarProyecto.mutateAsync(proyectoABorrar.id)
+      setProyectoABorrar(null)
+    } catch (err) {
+      setErrorBorrado(err instanceof Error ? err.message : 'Error al eliminar. Intenta de nuevo.')
+    }
+  }
+
+  const fuentesDelProyectoABorrar = proyectoABorrar ? resumenFuentes(proyectoABorrar.id).total : 0
+
   return (
     <Card>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
@@ -49,6 +67,10 @@ export function ProyectosTable({ proyectos, fuentes, onVerFuentes }: Props) {
           ＋ Nuevo proyecto
         </button>
       </div>
+
+      {errorBorrado && !proyectoABorrar && (
+        <p className="text-sm font-semibold text-red-500 mb-3">{errorBorrado}</p>
+      )}
 
       <div className="flex items-center gap-3 flex-wrap mb-3">
         <input
@@ -96,7 +118,14 @@ export function ProyectosTable({ proyectos, fuentes, onVerFuentes }: Props) {
                 const r = resumenFuentes(p.id)
                 return (
                   <tr key={p.id} className="border-t border-border">
-                    <td className="px-3.5 py-2.5 font-semibold text-fg">{p.nombre}</td>
+                    <td className="px-3.5 py-2.5 font-semibold text-fg">
+                      {p.nombre}
+                      {p.instituciones_detalle.length > 0 && (
+                        <div className="text-xs font-normal text-fg-muted mt-0.5">
+                          {p.instituciones_detalle.map((i) => i.nombre).join(', ')}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3.5 py-2.5 text-fg">
                       <strong>{r.total}</strong> fuente{r.total === 1 ? '' : 's'}
                     </td>
@@ -104,7 +133,7 @@ export function ProyectosTable({ proyectos, fuentes, onVerFuentes }: Props) {
                       {r.completas} completas · {r.pendientes} pendientes · {r.errores} con errores
                     </td>
                     <td className="px-3.5 py-2.5">
-                      <div className="flex gap-1.5 flex-wrap">
+                      <div className="flex gap-1.5 flex-wrap items-center">
                         <button
                           type="button"
                           onClick={() => onVerFuentes(p.id)}
@@ -118,6 +147,25 @@ export function ProyectosTable({ proyectos, fuentes, onVerFuentes }: Props) {
                         >
                           📊 Ver datos cargados
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => openProyectoDrawer({ proyecto: p })}
+                          title="Editar proyecto"
+                          className="w-8 h-8 flex items-center justify-center rounded-md border border-border text-fg-muted hover:text-fg"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setErrorBorrado('')
+                            setProyectoABorrar(p)
+                          }}
+                          title="Eliminar proyecto"
+                          className="w-8 h-8 flex items-center justify-center rounded-md border border-border text-fg-muted hover:text-red-600 dark:hover:text-red-400 hover:border-red-500"
+                        >
+                          ✕
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -138,6 +186,29 @@ export function ProyectosTable({ proyectos, fuentes, onVerFuentes }: Props) {
           onSiguiente={() => setOffset(offset + LIMITE)}
         />
       )}
+
+      <ConfirmModal
+        open={proyectoABorrar != null}
+        title="Eliminar proyecto"
+        description={
+          proyectoABorrar
+            ? errorBorrado ||
+              `¿Eliminar el proyecto "${proyectoABorrar.nombre}"? ${fuentesDelProyectoABorrar} fuente${
+                  fuentesDelProyectoABorrar === 1 ? '' : 's'
+                } de datos asociada${fuentesDelProyectoABorrar === 1 ? '' : 's'} quedará${
+                  fuentesDelProyectoABorrar === 1 ? '' : 'n'
+                } sin proyecto. Esta acción no se puede deshacer.`
+            : ''
+        }
+        confirmLabel="Sí, eliminar"
+        danger
+        loading={eliminarProyecto.isPending}
+        onConfirm={handleConfirmarBorrar}
+        onCancel={() => {
+          setProyectoABorrar(null)
+          setErrorBorrado('')
+        }}
+      />
     </Card>
   )
 }

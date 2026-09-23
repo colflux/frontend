@@ -1,14 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useProyectoDrawerStore } from '@/store/useProyectoDrawerStore'
-import { useCrearProyecto } from '@/hooks/useProyectoMutations'
+import { useCrearProyecto, useActualizarProyecto } from '@/hooks/useProyectoMutations'
+import { useInstituciones } from '@/hooks/useUsuarioMutations'
 
 const inputClass =
   'bg-surface border border-border text-fg text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-teal w-full'
 const labelClass = 'text-xs font-bold text-fg'
 
 export function ProyectoDrawer() {
-  const { open, closeDrawer } = useProyectoDrawerStore()
+  const { open, editingProyecto, closeDrawer } = useProyectoDrawerStore()
+  const { data: instituciones } = useInstituciones()
   const crearProyecto = useCrearProyecto()
+  const actualizarProyecto = useActualizarProyecto()
 
   const [nombre, setNombre] = useState('')
   const [fechaInicio, setFechaInicio] = useState('')
@@ -16,18 +19,36 @@ export function ProyectoDrawer() {
   const [coordinador, setCoordinador] = useState('')
   const [correo, setCorreo] = useState('')
   const [objetivo, setObjetivo] = useState('')
+  const [institucionesIds, setInstitucionesIds] = useState<number[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open) return
-    setNombre('')
-    setFechaInicio('')
-    setFechaFin('')
-    setCoordinador('')
-    setCorreo('')
-    setObjetivo('')
+    if (editingProyecto) {
+      setNombre(editingProyecto.nombre)
+      setFechaInicio(editingProyecto.fecha_inicio || '')
+      setFechaFin(editingProyecto.fecha_fin || '')
+      setCoordinador(editingProyecto.coordinador || '')
+      setCorreo(editingProyecto.correo_coordinador || '')
+      setObjetivo(editingProyecto.objetivo_general || '')
+      setInstitucionesIds(editingProyecto.instituciones ?? [])
+    } else {
+      setNombre('')
+      setFechaInicio('')
+      setFechaFin('')
+      setCoordinador('')
+      setCorreo('')
+      setObjetivo('')
+      setInstitucionesIds([])
+    }
     setError('')
-  }, [open])
+  }, [open, editingProyecto])
+
+  const guardando = crearProyecto.isPending || actualizarProyecto.isPending
+
+  function toggleInstitucion(id: number) {
+    setInstitucionesIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -37,15 +58,23 @@ export function ProyectoDrawer() {
       return
     }
     setError('')
+
+    const payload = {
+      nombre: nombreTrim,
+      coordinador: coordinador.trim(),
+      correo_coordinador: correo.trim(),
+      objetivo_general: objetivo.trim(),
+      fecha_inicio: fechaInicio || null,
+      fecha_fin: fechaFin || null,
+      instituciones: institucionesIds,
+    }
+
     try {
-      await crearProyecto.mutateAsync({
-        nombre: nombreTrim,
-        coordinador: coordinador.trim(),
-        correo_coordinador: correo.trim(),
-        objetivo_general: objetivo.trim(),
-        fecha_inicio: fechaInicio || null,
-        fecha_fin: fechaFin || null,
-      })
+      if (editingProyecto) {
+        await actualizarProyecto.mutateAsync({ id: editingProyecto.id, payload })
+      } else {
+        await crearProyecto.mutateAsync(payload)
+      }
       closeDrawer()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar. Intenta de nuevo.')
@@ -66,7 +95,7 @@ export function ProyectoDrawer() {
         }`}
       >
         <div className="px-6 pt-5 pb-4 border-b border-border flex items-center justify-between">
-          <h3 className="text-base font-extrabold text-fg">🗂 Nuevo proyecto</h3>
+          <h3 className="text-base font-extrabold text-fg">🗂 {editingProyecto ? 'Editar proyecto' : 'Nuevo proyecto'}</h3>
           <button
             type="button"
             onClick={closeDrawer}
@@ -134,6 +163,30 @@ export function ProyectoDrawer() {
             />
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Instituciones asociadas</label>
+            {instituciones && instituciones.length > 0 ? (
+              <div className="border border-border rounded-md max-h-40 overflow-y-auto flex flex-col divide-y divide-border">
+                {instituciones.map((inst) => (
+                  <label
+                    key={inst.id}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-fg cursor-pointer hover:bg-surface"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={institucionesIds.includes(inst.id)}
+                      onChange={() => toggleInstitucion(inst.id)}
+                      className="accent-brand-teal"
+                    />
+                    {inst.nombre}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-fg-muted">No hay instituciones registradas todavía.</p>
+            )}
+          </div>
+
           {error && <p className="text-sm font-semibold text-red-500">{error}</p>}
         </form>
 
@@ -148,10 +201,10 @@ export function ProyectoDrawer() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={crearProyecto.isPending}
+            disabled={guardando}
             className="flex-1 bg-brand-teal hover:bg-brand-teal-dark disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-md transition-colors"
           >
-            {crearProyecto.isPending ? 'Guardando…' : 'Guardar proyecto'}
+            {guardando ? 'Guardando…' : editingProyecto ? 'Guardar cambios' : 'Guardar proyecto'}
           </button>
         </div>
       </div>
