@@ -5,12 +5,18 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api
 export const datosService = {
   getDatosProyecto: async (
     proyectoId: number,
-    { vista, sitio, filtros, offset, limite }: DatosProyectoFilters = {}
+    { vista, sitio, filtros, vereda, municipio, departamento, region, desde, hasta, offset, limite }: DatosProyectoFilters = {}
   ): Promise<DatosProyectoResponse> => {
     const params = new URLSearchParams()
     if (vista) params.set('vista', vista)
     if (sitio != null) params.set('sitio', String(sitio))
     if (filtros && Object.keys(filtros).length > 0) params.set('filtros', JSON.stringify(filtros))
+    if (vereda != null) params.set('vereda', String(vereda))
+    if (municipio != null) params.set('municipio', String(municipio))
+    if (departamento != null) params.set('departamento', String(departamento))
+    if (region != null) params.set('region', String(region))
+    if (desde) params.set('desde', desde)
+    if (hasta) params.set('hasta', hasta)
     if (offset != null) params.set('offset', String(offset))
     if (limite != null) params.set('limite', String(limite))
 

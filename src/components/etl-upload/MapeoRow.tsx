@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
+import { useFkChoices } from '@/hooks/useFkChoices'
 import { useRegexSugerido } from '@/hooks/useRegexSugerido'
 import { columnaEsCompleja } from '@/utils/etlMapeo'
 import { ChoicesPanel } from './ChoicesPanel'
@@ -54,9 +55,13 @@ export function MapeoRow({ idx, modeloKeys }: Props) {
   const campos = seleccion?.modelo ? modelosDestino[seleccion.modelo] ?? [] : []
   const mostrarTipoCobertura = seleccion?.modelo === 'Cobertura' && seleccion?.campo === 'nombre'
   const campoMeta = campos.find((c) => c.nombre === seleccion?.campo)
+  // Las instancias de un campo FK se piden aparte (ver useFkChoices) — para
+  // campos no-FK, campoMeta.choices ya trae los choices estáticos del modelo.
+  const fkChoices = useFkChoices(seleccion?.modelo, seleccion?.campo, fuenteId, campoMeta?.es_fk)
+  const choicesEfectivos = campoMeta?.es_fk ? fkChoices.data?.choices ?? [] : campoMeta?.choices ?? []
   // Campos con choices (p. ej. FKs) y campos de hora son mutuamente
   // excluyentes en la práctica: un TimeField nunca trae choices estáticos.
-  const mostrarChoices = Boolean(campoMeta && campoMeta.choices.length > 0 && (col.valores_unicos?.length ?? 0) > 0)
+  const mostrarChoices = Boolean(campoMeta && choicesEfectivos.length > 0 && (col.valores_unicos?.length ?? 0) > 0)
   const esCompleja = columnaEsCompleja(idx, col, mapeoSeleccion, ultimosErroresPorColumna)
 
   function toggleRegex() {
@@ -209,7 +214,7 @@ export function MapeoRow({ idx, modeloKeys }: Props) {
         )}
       </div>
 
-      {mostrarChoices && campoMeta && <ChoicesPanel idx={idx} choices={campoMeta.choices} />}
+      {mostrarChoices && campoMeta && <ChoicesPanel idx={idx} choices={choicesEfectivos} />}
 
       {esCompleja && (
         <div className="px-4 pb-3">

@@ -1,56 +1,54 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
-import { Select } from '@/components/common/Select'
+import { ChatBubble } from '@/components/chat/ChatBubble'
+import { ChatTypingIndicator } from '@/components/chat/ChatTypingIndicator'
+import { ChatInput } from '@/components/chat/ChatInput'
 import { useRolActual } from '@/hooks/useRolActual'
-import { TourButton } from '@/components/common/TourButton'
-import { useOnboardingTour } from '@/hooks/useOnboardingTour'
+import { useCargaChat } from '@/hooks/useCargaChat'
+import { useAuthStore } from '@/store/useAuthStore'
+import { iaCargaService } from '@/services/iaCarga.service'
+import type { IaCargaSubirResponse } from '@/types'
 
-const ECOSISTEMAS = [
-  { value: '', label: 'Selecciona un ecosistema' },
-  { value: 'paramo', label: 'Páramo' },
-  { value: 'humedal', label: 'Humedal' },
-  { value: 'bosque', label: 'Bosque andino' },
-  { value: 'otro', label: 'Otro' },
-]
+const EXTENSIONES_VALIDAS = ['.xlsx', '.xls', '.csv']
 
 export function ReportarFormulario() {
   const { tieneNivel } = useRolActual()
-  const [enviado, setEnviado] = useState(false)
-  const [ecosistema, setEcosistema] = useState('')
-  const [ubicacion, setUbicacion] = useState('')
-  const [descripcion, setDescripcion] = useState('')
+  const token = useAuthStore((s) => s.token)
 
-  const { start: iniciarTour } = useOnboardingTour({
-    tourId: 'reportar-formulario',
-    steps: [
-      {
-        element: '[data-tour="reportar-form"]',
-        popover: {
-          title: 'Datos del reporte',
-          description: 'Indica el tipo de observación, la ubicación y describe lo que observaste.',
-        },
-      },
-      {
-        element: '[data-tour="reportar-enviar"]',
-        popover: {
-          title: 'Enviar',
-          description: 'Envía el reporte para que quede registrado.',
-        },
-      },
-    ],
-  })
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const [nombreFuente, setNombreFuente] = useState('')
+  const [subiendo, setSubiendo] = useState(false)
+  const [errorSubida, setErrorSubida] = useState<string | null>(null)
+  const [carga, setCarga] = useState<IaCargaSubirResponse | null>(null)
 
   if (!tieneNivel('reportador')) return <Navigate to="/" replace />
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setEnviado(true)
+    if (!archivo || !token) return
+
+    const nombre = nombreFuente.trim() || archivo.name
+    const extension = archivo.name.slice(archivo.name.lastIndexOf('.')).toLowerCase()
+    if (!EXTENSIONES_VALIDAS.includes(extension)) {
+      setErrorSubida('Formato no permitido. Solo .xlsx, .xls o .csv')
+      return
+    }
+
+    setSubiendo(true)
+    setErrorSubida(null)
+    try {
+      const resultado = await iaCargaService.subirArchivo(token, archivo, nombre)
+      setCarga(resultado)
+    } catch (err) {
+      setErrorSubida(err instanceof Error ? err.message : 'No se pudo subir el archivo.')
+    } finally {
+      setSubiendo(false)
+    }
   }
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-4 max-w-2xl mx-auto w-full">
-      <TourButton onClick={iniciarTour} />
       <div>
         <Link
           to="/reportar"
@@ -60,83 +58,91 @@ export function ReportarFormulario() {
         </Link>
         <h1 className="text-xl font-bold text-fg mt-2">Formulario web</h1>
         <p className="text-sm text-fg-muted mt-1">
-          Completa el formulario para reportar información desde tu territorio.
+          Sube un archivo de datos (.xlsx, .xls o .csv) y conversa con el asistente para mapear
+          sus columnas al modelo de datos de COLFLUX.
         </p>
       </div>
 
-      <Card title="Nuevo reporte">
-        {enviado ? (
-          <div className="text-center py-8">
-            <p className="text-2xl" aria-hidden>
-              ✅
-            </p>
-            <p className="mt-2 text-sm font-semibold text-fg">¡Gracias por tu reporte!</p>
-            <p className="text-xs text-fg-muted mt-1">
-              Tu información quedó registrada localmente en esta demo (aún no se envía a un
-              servidor).
-            </p>
-            <button
-              onClick={() => {
-                setEnviado(false)
-                setEcosistema('')
-                setUbicacion('')
-                setDescripcion('')
-              }}
-              className="mt-4 text-xs font-semibold text-brand-teal dark:text-brand-teal-bright hover:underline"
-            >
-              Enviar otro reporte
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} data-tour="reportar-form" className="flex flex-col gap-4">
-            <Select
-              label="Tipo de observación"
-              value={ecosistema}
-              options={ECOSISTEMAS}
-              onChange={setEcosistema}
-            />
-
+      {!carga ? (
+        <Card title="Subir archivo">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-fg-muted font-medium">Ubicación</label>
+              <label className="text-xs text-fg-muted font-medium">Nombre de la fuente</label>
               <input
                 type="text"
-                value={ubicacion}
-                onChange={(e) => setUbicacion(e.target.value)}
-                placeholder="Busca un lugar o descríbelo"
+                value={nombreFuente}
+                onChange={(e) => setNombreFuente(e.target.value)}
+                placeholder="Ej. Datos IDEAM estación Chingaza"
                 className="bg-surface border border-border text-fg text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-teal"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-fg-muted font-medium">Descripción</label>
-              <textarea
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                rows={4}
-                maxLength={500}
-                placeholder="Cuéntanos lo que observaste…"
-                className="bg-surface border border-border text-fg text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-teal resize-none"
+              <label className="text-xs text-fg-muted font-medium">Archivo</label>
+              <input
+                type="file"
+                accept={EXTENSIONES_VALIDAS.join(',')}
+                onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+                className="text-sm text-fg-muted file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-brand-teal file:text-white file:text-xs file:font-semibold hover:file:bg-brand-teal-dark file:cursor-pointer cursor-pointer"
               />
-              <p className="text-xs text-fg-subtle text-right">{descripcion.length}/500</p>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-fg-muted font-medium">Foto (opcional)</label>
-              <div className="border border-dashed border-border rounded-md p-4 flex items-center justify-center text-fg-subtle text-xs gap-2">
-                <span aria-hidden>📷</span> Agrega una foto
-              </div>
-            </div>
+            {errorSubida && <p className="text-xs text-red-600 dark:text-red-400">{errorSubida}</p>}
 
             <button
               type="submit"
-              data-tour="reportar-enviar"
-              className="bg-brand-teal hover:bg-brand-teal-dark text-white px-4 py-2.5 rounded-md font-semibold text-sm transition-colors"
+              disabled={!archivo || subiendo}
+              className="bg-brand-teal hover:bg-brand-teal-dark text-white px-4 py-2.5 rounded-md font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Enviar mensaje
+              {subiendo ? 'Subiendo…' : 'Subir y proponer mapeo con IA'}
             </button>
           </form>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <CargaChat carga={carga} token={token!} />
+      )}
     </div>
+  )
+}
+
+function CargaChat({ carga, token }: { carga: IaCargaSubirResponse; token: string }) {
+  const { messages, sendMessage, isSending } = useCargaChat(carga.carga_id, token)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const yaPidioPropuesta = useRef(false)
+
+  useEffect(() => {
+    if (yaPidioPropuesta.current) return
+    yaPidioPropuesta.current = true
+    sendMessage(
+      `Quiero mapear la carga_id ${carga.carga_id} del formulario web, ¿me ayudas a proponer el mapeo de columnas?`,
+      false
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carga.carga_id])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isSending])
+
+  return (
+    <Card title={`Mapeo de columnas — carga #${carga.carga_id}`}>
+      <p className="text-xs text-fg-muted mb-3">
+        {carga.total_filas} filas · {carga.columnas.length} columnas detectadas. El asistente
+        propondrá a qué campo del modelo corresponde cada una — revisa la propuesta y confirma
+        cuando estés de acuerdo.
+      </p>
+
+      <div className="h-96 overflow-y-auto flex flex-col gap-3 border border-border rounded-md p-3 bg-surface">
+        {messages.map((m) => (
+          <ChatBubble key={m.id} message={m} />
+        ))}
+        {isSending && <ChatTypingIndicator />}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="mt-3 -mx-4 -mb-4">
+        <ChatInput onSend={sendMessage} disabled={isSending} />
+      </div>
+    </Card>
   )
 }

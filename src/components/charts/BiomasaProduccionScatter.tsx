@@ -7,7 +7,7 @@ interface Props {
 }
 
 export function BiomasaProduccionScatter({ sitioId }: Props = {}) {
-  const { data, isLoading } = useBiomasaProduccion(undefined, sitioId)
+  const { data, isLoading } = useBiomasaProduccion(sitioId != null ? { sitio: sitioId } : {})
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const tickColor = isDark ? '#94a3b8' : '#64748b'
 

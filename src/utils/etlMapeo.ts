@@ -47,6 +47,21 @@ export function seccionBloqueada(
   return !reales.slice(0, idx).every((s) => seccionesGuardadas.has(s.orden))
 }
 
+// Nombres de las secciones anteriores que aún no se han guardado — para
+// explicar en un tooltip por qué una sección está bloqueada.
+export function seccionesFaltantesPara(
+  orden: number,
+  grupos: Record<string, GrupoModeloInfo>,
+  seccionesGuardadas: Set<number>
+): string[] {
+  const reales = seccionesReales(grupos)
+  const idx = reales.findIndex((s) => s.orden === orden)
+  if (idx <= 0) return []
+  return reales.slice(0, idx)
+    .filter((s) => !seccionesGuardadas.has(s.orden))
+    .map((s) => s.nombre)
+}
+
 export function contarColumnasSinMapear(
   columnas: ColumnaOrigen[],
   mapeoSeleccion: Record<number, MapeoSeleccion>

@@ -16,7 +16,7 @@ import {
 } from '@/utils/choropleth'
 import { GeoBreadcrumb } from './GeoBreadcrumb'
 import { ChoroplethLegend } from './ChoroplethLegend'
-import type { GeoNivel, GeoResumenFeature, GeoResumenFilters, SitioFeature } from '@/types'
+import type { GeoNivel, GeoResumenFeature, GeoResumenFilters, SitiosFilters, SitioFeature } from '@/types'
 
 const LIGHT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 const DARK_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
@@ -56,18 +56,20 @@ export function GeoMap({ onSelectSitio }: Props) {
   const sitiosMarkersRef = useRef<maplibregl.Marker[]>([])
   const hoverPopupRef = useRef<maplibregl.Popup | null>(null)
 
-  const { data: sitios } = useSitios()
   const {
     filters,
     metodologia,
     mapViewMode,
     setMapViewMode,
+    region,
     departamento,
     municipio,
     vereda,
     setMunicipio,
     setVereda,
     resetDrill,
+    flujosAnalizadorId,
+    flujosCondicionLuzId,
   } = useAppStore()
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const [basemap, setBasemap] = useState<BasemapMode>('map')
@@ -85,15 +87,35 @@ export function GeoMap({ onSelectSitio }: Props) {
   const nivel: GeoNivel =
     departamento == null ? 'departamento' : municipio == null ? 'municipio' : vereda == null ? 'vereda' : 'sitio'
 
+  const flujosFiltros = useMemo(
+    () => ({ analizadorId: flujosAnalizadorId, condicionLuzId: flujosCondicionLuzId }),
+    [flujosAnalizadorId, flujosCondicionLuzId]
+  )
+
   const resumenFilters = useMemo<GeoResumenFilters>(() => {
-    const f = buildGeoResumenBaseFilters(filters, metodologia)
+    const f = buildGeoResumenBaseFilters(filters, metodologia, flujosFiltros)
+    if (region) f.region = region.id
     if (departamento) f.departamento = departamento.id
     if (municipio) f.municipio = municipio.id
     if (vereda) f.vereda = vereda.id
     return f
-  }, [filters, metodologia, departamento, municipio, vereda])
+  }, [filters, metodologia, flujosFiltros, region, departamento, municipio, vereda])
 
   const { data: resumenData } = useResumenGeo(nivel, resumenFilters, mapViewMode === 'regiones')
+
+  // Los pines de "Sitios" usan los mismos filtros geográficos/temporales que
+  // el choropleth de "Regiones" -sin "categoria", que sitios_geojson no
+  // acepta: siempre trae flujos/biomasa/cos a la vez-. El gas no se manda
+  // -sitios_geojson no lo filtra-: el cliente elige qué sub-objeto de
+  // resumen_por_gas mostrar más abajo.
+  const sitiosFilters = useMemo<SitiosFilters>(() => {
+    const resto: GeoResumenFilters = { ...resumenFilters }
+    delete resto.categoria
+    delete resto.gas
+    return resto
+  }, [resumenFilters])
+
+  const { data: sitios } = useSitios(sitiosFilters)
 
   // Refs con los valores más recientes: se usan para reconstruir el
   // choropleth después de un setStyle (que borra sources/layers del mapa).
@@ -299,7 +321,7 @@ export function GeoMap({ onSelectSitio }: Props) {
     if (bounds) mapRef.current.fitBounds(bounds, { padding: 60, duration: 800 })
   }, [resumenData, mapViewMode])
 
-  // Render sitios georreferenciados (GeoJSON) as pins, filtered by proyecto
+  // Render sitios georreferenciados (GeoJSON) as pins
   useEffect(() => {
     if (!mapRef.current) return
 
@@ -314,16 +336,11 @@ export function GeoMap({ onSelectSitio }: Props) {
     const color = categoria === 'flujos' ? (GAS_COLORS[filters.gas] ?? GAS_COLORS.CO2) : CATEGORIA_COLORS[categoria]
     const etiqueta = categoria === 'flujos' ? filters.gas : CATEGORIA_LABELS[categoria]
 
-    const featuresConProyecto = filters.proyectoId
-      ? sitios.features.filter((f) =>
-          f.properties.proyectos.some((p) => p.id === filters.proyectoId)
-        )
-      : sitios.features
-
-    // Sitios sin datos de la categoría/sub-filtro activo no se pintan en el
-    // mapa -mostrarlos atenuados generaba confusión, parecía que sí había
-    // datos ahí-.
-    const features = featuresConProyecto.filter((f) => {
+    // Los filtros geográficos/temporales/proyecto ya se aplicaron server-side
+    // (sitiosFilters, vía useSitios). Solo queda descartar sitios sin datos
+    // de la categoría/sub-filtro activo -mostrarlos atenuados generaba
+    // confusión, parecía que sí había datos ahí-.
+    const features = sitios.features.filter((f) => {
       const p = f.properties
       return categoria === 'flujos'
         ? p.resumen_por_gas?.[filters.gas] != null
@@ -354,13 +371,22 @@ export function GeoMap({ onSelectSitio }: Props) {
       const ultimaMedicion = resumenActivo?.ultima_medicion
         ? `${formatValor(resumenActivo.ultima_medicion.valor, resumenActivo.ultima_medicion.unidad)} (${resumenActivo.ultima_medicion.fecha})`
         : 'Sin datos'
+      // Por cada unidad de muestreo del sitio: la unidad experimental a la
+      // que pertenece y, debajo, su propio nombre.
+      const unidadesHtml = p.unidades_muestreo.length
+        ? p.unidades_muestreo
+            .map(
+              (um) =>
+                `<br/><span style="color:#374151">Unidad experimental: ${um.unidad_experimental ?? 'Sin unidad experimental'}</span>` +
+                `<br/><span style="color:#374151">Unidad de muestreo: ${um.nombre}</span>`
+            )
+            .join('')
+        : '<br/><span style="color:#374151">Sin unidades de muestreo</span>'
 
       const popup = new maplibregl.Popup({ offset: 20, closeButton: false }).setHTML(`
-        <strong style="color:#0f172a">${p.nombre || 'Sitio ' + p.id}</strong>
-        <br/><span style="color:#374151">Ubicación: ${ubicacion}</span>
+        <span style="color:#374151">Ubicación: ${ubicacion}</span>
         <br/><span style="color:#374151">Altitud: ${altitud}</span>
-        <br/><span style="color:#374151">Proyecto(s): ${proyectos}</span>
-        <br/><span style="color:#374151">Unidades de muestreo: ${p.unidades_muestreo.length}</span>
+        <br/><span style="color:#374151">Proyecto(s): ${proyectos}</span>${unidadesHtml}
         <br/><span style="color:#374151">Última medición (${etiqueta}): ${ultimaMedicion}</span>
         <br/><span style="color:#374151">Total de muestras (${etiqueta}): ${resumenActivo?.total_muestras ?? 0}</span>
         <br/><button class="ver-detalle-btn" style="margin-top:6px;padding:3px 10px;font-size:12px;font-weight:600;color:#fff;background:#198A77;border:none;border-radius:4px;cursor:pointer;">Ver detalle</button>
@@ -381,7 +407,7 @@ export function GeoMap({ onSelectSitio }: Props) {
 
       sitiosMarkersRef.current.push(marker)
     })
-  }, [sitios, filters.proyectoId, filters.gas, mapViewMode, categoria])
+  }, [sitios, filters.gas, mapViewMode, categoria])
 
   const breadcrumbItems = useMemo(() => {
     const items: { label: string; onClick?: () => void }[] = [

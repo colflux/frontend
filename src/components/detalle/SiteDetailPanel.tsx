@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { useDatosProyecto } from '@/hooks/useDatosProyecto'
+import { useResumenCategorico } from '@/hooks/useResumenCategorico'
 import { datosService } from '@/services/datos.service'
 import { downloadFile } from '@/utils/download'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useAppStore } from '@/store/useAppStore'
 import { metodologiaToCategoria } from '@/utils/geoFilters'
 import { CATEGORIA_LABELS } from '@/utils/formatters'
+import { ENTIDAD_MAP } from '@/utils/catalogoModel'
 import { EmissionTrendChart } from '@/components/charts/EmissionTrendChart'
 import { BiomasaProduccionScatter } from '@/components/charts/BiomasaProduccionScatter'
 import { CosProfundidadChart } from '@/components/charts/CosProfundidadChart'
@@ -20,6 +22,8 @@ interface Props {
 const LIMITE = 50
 
 const GAS_COLUMNA = 'MuestraGEI.gas'
+const ANALIZADOR_COLUMNA = 'Equipo.modelo'
+const CONDICION_LUZ_COLUMNA = 'SubmuestraGEI.condicion_luz'
 
 // Una sola fila de pestañas: CO2 y CH4 son la vista "submuestra_gei" filtrada
 // por gas (el backend no expone vistas separadas por gas), Unidad de
@@ -31,21 +35,29 @@ const DETALLE_TABS: { key: string; label: string; vista: VistaDatos; gasFiltro?:
   { key: 'clima', label: 'Clima', vista: 'clima' },
 ]
 
-const MODELO_COLORS = [
-  '#198A77', // verde azulado
-  '#739E5B', // verde
-  '#F2B91B', // amarillo
-  '#DF5B26', // naranja
-  '#57270F', // café
-  '#F19F1F', // naranja claro
-  '#2FBFA3', // verde azulado claro
-  '#56763F', // verde oscuro
-]
+// Color por modelo: mismo criterio que la tabla del ETL (`DatosTable.tsx`) —
+// viene de `catalogo.json` vía `ENTIDAD_MAP`, no de una paleta local por
+// orden de aparición, así ambas tablas pintan cada modelo con el mismo color
+// que el diagrama ERD de /db y el Excel exportado.
+function colorDeModelo(modelo: string): string {
+  return ENTIDAD_MAP[modelo]?.color ?? '#374151'
+}
 
 export function SiteDetailPanel({ sitio, onClose }: Props) {
   const token = useAuthStore((s) => s.token)
   const metodologia = useAppStore((s) => s.metodologia)
+  const year = useAppStore((s) => s.filters.year)
+  const flujosCondicionLuzId = useAppStore((s) => s.flujosCondicionLuzId)
+  const flujosAnalizadorId = useAppStore((s) => s.flujosAnalizadorId)
   const categoria = useMemo(() => metodologiaToCategoria(metodologia), [metodologia])
+  // El store guarda el id del analizador (para /api/geo/resumen-categorico/,
+  // que sí filtra por FK), pero el mecanismo genérico de "filtros" de esta
+  // tabla hace icontains de texto sobre "Equipo.modelo" -hay que resolver
+  // primero el nombre-. Solo se pide si hace falta.
+  const { data: analizadorData } = useResumenCategorico('analizador', {}, flujosAnalizadorId != null)
+  const analizadorNombre = analizadorData?.resultados.find(
+    (r) => String(r.id) === String(flujosAnalizadorId)
+  )?.nombre
   // Un solo panel con pestañas de sección (Gráficas / Datos detallados) en vez
   // de dos bloques apilados: así el panel no ocupa toda la pantalla.
   const [activeSection, setActiveSection] = useState<'graficas' | 'datos'>('graficas')
@@ -97,27 +109,56 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
 
   const sitioId = sitio.properties.id
 
-  // El gas de la pestaña (CO2/CH4) se fuerza en el filtro de la columna de
-  // gas, sin importar lo que el usuario haya tipeado ahí.
+  // El gas de la pestaña (CO2/CH4), el día/noche y el analizador del panel de
+  // filtros se fuerzan en el filtro de columna correspondiente, sin importar
+  // lo que el usuario haya tipeado ahí -mismo criterio que ya existía para el
+  // gas-. Las tres claves solo existen en la vista "submuestra_gei" (CO2/CH4);
+  // el backend ignora en silencio claves que no aplican a otras vistas.
   const filtrosEfectivos = useMemo(() => {
-    if (!tab.gasFiltro) return filtros
-    return { ...filtros, [GAS_COLUMNA]: tab.gasFiltro }
-  }, [filtros, tab.gasFiltro])
+    const extra: Record<string, string> = {}
+    if (tab.gasFiltro) extra[GAS_COLUMNA] = tab.gasFiltro
+    if (tab.vista === 'submuestra_gei' && flujosCondicionLuzId != null) {
+      extra[CONDICION_LUZ_COLUMNA] = String(flujosCondicionLuzId)
+    }
+    if (tab.vista === 'submuestra_gei' && analizadorNombre) {
+      extra[ANALIZADOR_COLUMNA] = analizadorNombre
+    }
+    return Object.keys(extra).length ? { ...filtros, ...extra } : filtros
+  }, [filtros, tab.gasFiltro, tab.vista, flujosCondicionLuzId, analizadorNombre])
+
+  // Año del panel de filtros -> desde/hasta, igual que en el resto de la app.
+  // Aplica a todas las vistas cuyo modelo base tenga un campo "fecha" propio
+  // (el backend ignora el filtro si no lo tiene, ej. unidad_muestreo).
+  const rangoFechas = useMemo(
+    () => (year != null ? { desde: `${year}-01-01`, hasta: `${year}-12-31` } : {}),
+    [year]
+  )
 
   // Chequeo liviano (limite=1) de qué pestañas tienen datos para este sitio,
   // para poder ocultarlas cuando no aplican, como pide la referencia del panel ETL.
   const tabsConDatos = useQueries({
-    queries: DETALLE_TABS.map((t) => ({
-      queryKey: ['datos-proyecto-tab', proyectoId, sitioId, t.key],
-      queryFn: () => datosService.getDatosProyecto(proyectoId as number, {
-        vista: t.vista,
-        sitio: sitioId,
-        filtros: t.gasFiltro ? { [GAS_COLUMNA]: t.gasFiltro } : undefined,
-        limite: 1,
-        offset: 0,
-      }),
-      enabled: proyectoId != null,
-    })),
+    queries: DETALLE_TABS.map((t) => {
+      const extra: Record<string, string> = {}
+      if (t.gasFiltro) extra[GAS_COLUMNA] = t.gasFiltro
+      if (t.vista === 'submuestra_gei' && flujosCondicionLuzId != null) {
+        extra[CONDICION_LUZ_COLUMNA] = String(flujosCondicionLuzId)
+      }
+      if (t.vista === 'submuestra_gei' && analizadorNombre) {
+        extra[ANALIZADOR_COLUMNA] = analizadorNombre
+      }
+      return {
+        queryKey: ['datos-proyecto-tab', proyectoId, sitioId, t.key, rangoFechas, extra],
+        queryFn: () => datosService.getDatosProyecto(proyectoId as number, {
+          vista: t.vista,
+          sitio: sitioId,
+          filtros: Object.keys(extra).length ? extra : undefined,
+          ...rangoFechas,
+          limite: 1,
+          offset: 0,
+        }),
+        enabled: proyectoId != null,
+      }
+    }),
   })
 
   const tabsVisibles = DETALLE_TABS.filter((_, i) => (tabsConDatos[i].data?.total ?? 0) > 0)
@@ -131,16 +172,8 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
   }, [tabsVisibles.map((t) => t.key).join(',')])
 
   const { data, isLoading, isFetching } = useDatosProyecto(proyectoId, {
-    vista: tab.vista, sitio: sitioId, filtros: filtrosEfectivos, offset, limite: LIMITE,
+    vista: tab.vista, sitio: sitioId, filtros: filtrosEfectivos, ...rangoFechas, offset, limite: LIMITE,
   })
-
-  const colorPorModelo = useMemo(() => {
-    const map = new Map<string, string>()
-    data?.columnas.forEach((c) => {
-      if (!map.has(c.modelo)) map.set(c.modelo, MODELO_COLORS[map.size % MODELO_COLORS.length])
-    })
-    return map
-  }, [data?.columnas])
 
   const gruposModelo = useMemo(() => {
     const grupos: { modelo: string; colSpan: number }[] = []
@@ -272,7 +305,7 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
                         key={g.modelo}
                         colSpan={g.colSpan}
                         className="px-2 py-1 text-white font-semibold text-[11px] uppercase tracking-wide"
-                        style={{ backgroundColor: colorPorModelo.get(g.modelo) }}
+                        style={{ backgroundColor: colorDeModelo(g.modelo) }}
                       >
                         {g.modelo}
                       </th>
@@ -286,10 +319,16 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
                     ))}
                   </tr>
                   <tr>
-                    {data.columnas.map((c) =>
-                      // El gas ya queda fijo por la pestaña (CO2/CH4): no tiene sentido
-                      // dejarlo editable acá, se ignoraría igual.
-                      c.clave === GAS_COLUMNA && tab.gasFiltro ? (
+                    {data.columnas.map((c) => {
+                      // El gas ya queda fijo por la pestaña (CO2/CH4) y el
+                      // día/noche y el analizador por el panel de filtros: no
+                      // tiene sentido dejarlos editables acá, se ignorarían igual.
+                      const esEnVistaGei = tab.vista === 'submuestra_gei'
+                      const forzada =
+                        (c.clave === GAS_COLUMNA && tab.gasFiltro) ||
+                        (c.clave === CONDICION_LUZ_COLUMNA && esEnVistaGei && flujosCondicionLuzId != null) ||
+                        (c.clave === ANALIZADOR_COLUMNA && esEnVistaGei && !!analizadorNombre)
+                      return forzada ? (
                         <th key={c.clave} className="px-1 py-1 border border-border bg-surface" />
                       ) : (
                         <th key={c.clave} className="px-1 py-1 border border-border bg-surface">
@@ -301,7 +340,7 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
                           />
                         </th>
                       )
-                    )}
+                    })}
                   </tr>
                 </thead>
                 <tbody className={isFetching ? 'opacity-50' : ''}>

@@ -1,6 +1,7 @@
 import type {
   AnalizarFuenteResponse,
   CamposDestinoResponse,
+  FkChoicesResponse,
   ImportarSeccionResponse,
   MapeoColumnaPayload,
   PostMapeoResponse,
@@ -52,6 +53,13 @@ export const etlService = {
   getCamposDestino: (fuenteId: number | null): Promise<CamposDestinoResponse> => {
     const qs = fuenteId != null ? `?fuente=${encodeURIComponent(fuenteId)}` : ''
     return fetchJson(`${API_BASE}/etl/campos-destino/${qs}`)
+  },
+
+  getFkChoices: (modelo: string, campo: string, fuenteId: number | null): Promise<FkChoicesResponse> => {
+    const fuenteQs = fuenteId != null ? `&fuente=${encodeURIComponent(fuenteId)}` : ''
+    return fetchJson(
+      `${API_BASE}/etl/fk-choices/?modelo=${encodeURIComponent(modelo)}&campo=${encodeURIComponent(campo)}${fuenteQs}`
+    )
   },
 
   postMapeo: (
