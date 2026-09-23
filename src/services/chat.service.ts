@@ -60,6 +60,13 @@ export const chatService = {
     return cuerpo as CargaDocumentoResponse
   },
 
+  // Enlace temporal (1 hora) para mostrar una imagen subida; no pide sesión.
+  getEnlaceImagen: async (archivo: string): Promise<string> => {
+    const res = await fetch(`${CHAT_API_BASE}/documentos/imagen?archivo=${encodeURIComponent(archivo)}`)
+    if (!res.ok) throw new Error(`API error ${res.status}`)
+    return ((await res.json()) as { url: string }).url
+  },
+
   // Enlace temporal (1 hora) al original de un archivo subido. El asistente
   // solo lo entrega a reportadores y administradores.
   getEnlaceDescarga: async (archivo: string, token: string): Promise<string> => {
