@@ -27,9 +27,10 @@ export function useActualizarFuente() {
 }
 
 export function useSubirArchivoFuente() {
+  const token = useAuthStore((s) => s.token)
   return useMutation({
     mutationFn: ({ fuenteId, archivo }: { fuenteId: number; archivo: File }) =>
-      fuentesService.uploadArchivoFuente(fuenteId, archivo),
+      fuentesService.uploadArchivoFuente(token ?? '', fuenteId, archivo),
   })
 }
 

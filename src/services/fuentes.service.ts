@@ -54,11 +54,12 @@ export const fuentesService = {
     if (!res.ok && res.status !== 204) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))
   },
 
-  uploadArchivoFuente: async (fuenteId: number, archivo: File): Promise<{ url: string }> => {
+  uploadArchivoFuente: async (token: string, fuenteId: number, archivo: File): Promise<{ url: string }> => {
     const fd = new FormData()
     fd.append('archivo', archivo)
     const res = await fetch(`${API_BASE}/fuentes-datos/${fuenteId}/archivo/`, {
       method: 'POST',
+      headers: { Authorization: `Token ${token}` },
       body: fd,
     })
     if (!res.ok) throw new Error(await parseErrorMessage(res, `Error ${res.status}`))

@@ -23,10 +23,10 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 // validación "esperado" (no una falla de red) — se retorna como valor, no
 // como excepción, para que el llamador lo muestre inline igual que el
 // resto del formulario.
-async function fetchSeccion<T>(url: string, hastaGrupo: number): Promise<T | ValidacionSeccionError> {
+async function fetchSeccion<T>(url: string, token: string, hastaGrupo: number): Promise<T | ValidacionSeccionError> {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ hasta_grupo: hastaGrupo }),
   })
   const data = await res.json().catch(() => ({}))
@@ -36,13 +36,17 @@ async function fetchSeccion<T>(url: string, hastaGrupo: number): Promise<T | Val
 }
 
 export const etlService = {
-  analizarFuente: (fuenteId: number, archivo?: File): Promise<AnalizarFuenteResponse> => {
+  analizarFuente: (token: string, fuenteId: number, archivo?: File): Promise<AnalizarFuenteResponse> => {
     let body: FormData | undefined
     if (archivo) {
       body = new FormData()
       body.append('archivo', archivo)
     }
-    return fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/upload/`, { method: 'POST', body })
+    return fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/upload/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+      body,
+    })
   },
 
   getCamposDestino: (fuenteId: number | null): Promise<CamposDestinoResponse> => {
@@ -51,6 +55,7 @@ export const etlService = {
   },
 
   postMapeo: (
+    token: string,
     fuenteId: number,
     cargaId: number,
     mapeos: MapeoColumnaPayload[],
@@ -58,23 +63,25 @@ export const etlService = {
   ): Promise<PostMapeoResponse> =>
     fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/mapeo/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ mapeos, parcial }),
     }),
 
   previsualizarSeccion: (
+    token: string,
     fuenteId: number,
     cargaId: number,
     hastaGrupo: number
   ): Promise<PrevisualizarSeccionResponse | ValidacionSeccionError> =>
-    fetchSeccion(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/previsualizar/`, hastaGrupo),
+    fetchSeccion(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/previsualizar/`, token, hastaGrupo),
 
   importarSeccion: (
+    token: string,
     fuenteId: number,
     cargaId: number,
     hastaGrupo: number
   ): Promise<ImportarSeccionResponse | ValidacionSeccionError> =>
-    fetchSeccion(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/importar/`, hastaGrupo),
+    fetchSeccion(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/importar/`, token, hastaGrupo),
 
   getRegexSugerido: (fuenteId: number, modelo: string, campo: string): Promise<RegexSugeridoResponse> =>
     fetchJson(
