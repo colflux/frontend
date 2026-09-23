@@ -1,5 +1,6 @@
 import type {
   SitiosFeatureCollection,
+  SitiosFilters,
   SerieResponse,
   SeriesFilters,
   GeoNivel,
@@ -10,13 +11,19 @@ import type {
   ResumenCategoricoFilters,
   Agrupacion,
   TendenciaInstalacionResponse,
+  ReporteGeoFilters,
 } from '@/types'
 
 const GEO_API_BASE = import.meta.env.VITE_GEO_API_BASE_URL ?? 'http://localhost:8001/api/geo'
 
 export const geoService = {
-  getSitios: async (): Promise<SitiosFeatureCollection> => {
-    const url = `${GEO_API_BASE}/sitios/`
+  getSitios: async (filters: SitiosFilters = {}): Promise<SitiosFeatureCollection> => {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v != null) params.set(k, String(v))
+    })
+    const query = params.toString()
+    const url = `${GEO_API_BASE}/sitios/${query ? `?${query}` : ''}`
     const res = await fetch(url)
     if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
     return res.json() as Promise<SitiosFeatureCollection>
@@ -64,7 +71,7 @@ export const geoService = {
   },
 
   getTendenciaInstalacion: async (
-    params: { agrupar?: Agrupacion; proyecto?: number } = {}
+    params: { agrupar?: Agrupacion } & Omit<ReporteGeoFilters, 'desde' | 'hasta'> = {}
   ): Promise<TendenciaInstalacionResponse> => {
     const search = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => {

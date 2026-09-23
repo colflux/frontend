@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function CosProfundidadChart({ sitioId }: Props = {}) {
-  const { data, isLoading } = useCosPorProfundidad(undefined, sitioId)
+  const { data, isLoading } = useCosPorProfundidad(sitioId != null ? { sitio: sitioId } : {})
   // "Profundidad de muestra" del recuadro de filtros de COS resalta el rango
   // elegido en vez de recargar datos: el backend ya trae todos los rangos
   // en una sola respuesta.

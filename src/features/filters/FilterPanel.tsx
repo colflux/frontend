@@ -81,18 +81,25 @@ export function FilterPanel() {
   }, [sitios])
 
   const categoria = useMemo(() => metodologiaToCategoria(metodologia), [metodologia])
-  const baseGeoFilters = useMemo(() => buildGeoResumenBaseFilters(filters, metodologia), [filters, metodologia])
+  const baseGeoFilters = useMemo(
+    () =>
+      buildGeoResumenBaseFilters(filters, metodologia, {
+        analizadorId: flujosAnalizadorId,
+        condicionLuzId: flujosCondicionLuzId,
+      }),
+    [filters, metodologia, flujosAnalizadorId, flujosCondicionLuzId]
+  )
 
   const { data: regionesData } = useResumenGeo('region', baseGeoFilters)
-  const { data: departamentosData } = useResumenGeo('departamento', baseGeoFilters)
+  const { data: departamentosData } = useResumenGeo('departamento', { ...baseGeoFilters, region: region?.id })
   const { data: municipiosData } = useResumenGeo(
     'municipio',
-    { ...baseGeoFilters, departamento: departamento?.id },
+    { ...baseGeoFilters, region: region?.id, departamento: departamento?.id },
     departamento != null
   )
   const { data: veredasData } = useResumenGeo(
     'vereda',
-    { ...baseGeoFilters, municipio: municipio?.id },
+    { ...baseGeoFilters, region: region?.id, departamento: departamento?.id, municipio: municipio?.id },
     municipio != null
   )
 

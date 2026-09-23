@@ -12,7 +12,7 @@ import { useGuardarAvance } from '@/hooks/useGuardarAvance'
 import { usePrevisualizarSeccion, useImportarSeccion, esError } from '@/hooks/useSeccionMutations'
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
 import { seccionesDisponibles, seccionBloqueada, SIN_MAPEAR_ORDEN } from '@/utils/etlMapeo'
-import type { DetalleModeloPreview, FuenteDatos } from '@/types'
+import type { ColumnaConErrores, DetalleModeloPreview, FuenteDatos } from '@/types'
 
 const SECCIONES_OPCIONALES = ['Sitio', 'Clima']
 
@@ -116,7 +116,7 @@ export function EtlUpload() {
   const importar = useImportarSeccion()
 
   const [avanceGuardadoInfo, setAvanceGuardadoInfo] = useState('')
-  const [errorSeccion, setErrorSeccion] = useState('')
+  const [errorSeccion, setErrorSeccion] = useState<{ resumen: string; columnas: ColumnaConErrores[] } | null>(null)
   const [resultadoSeccion, setResultadoSeccion] = useState('')
   const [preview, setPreview] = useState<{
     ordenGrupo: number
@@ -125,7 +125,7 @@ export function EtlUpload() {
   } | null>(null)
 
   async function handleGuardarAvance() {
-    setErrorSeccion('')
+    setErrorSeccion(null)
     try {
       await guardarAvance.mutateAsync()
       const selecciones = Object.values(store.mapeoSeleccion)
@@ -135,48 +135,68 @@ export function EtlUpload() {
         `Avance guardado — ${new Date().toLocaleTimeString()} (${mapeadas} de ${store.columnas.length} columnas mapeadas${ignoradas ? `, ${ignoradas} ignorada${ignoradas > 1 ? 's' : ''}` : ''})`
       )
     } catch (err) {
-      setErrorSeccion(err instanceof Error ? err.message : 'Error al guardar el avance.')
+      setErrorSeccion({
+        resumen: err instanceof Error ? err.message : 'Error al guardar el avance.',
+        columnas: [],
+      })
     }
   }
 
   async function handleGuardarSeccion() {
-    setErrorSeccion('')
+    setErrorSeccion(null)
     setResultadoSeccion('')
     const ordenGrupo = store.seccionIdx
-    const data = await previsualizar.mutateAsync(ordenGrupo)
-    if (esError(data)) {
-      setResultadoSeccion('')
-      setErrorSeccion(
-        `✗ ${data.resumen.total_errores} error(es) — no se guardó nada de esta sección. Revisa las columnas mapeadas.`
-      )
-      return
+    try {
+      const data = await previsualizar.mutateAsync(ordenGrupo)
+      if (esError(data)) {
+        setResultadoSeccion('')
+        setErrorSeccion({
+          resumen: `✗ ${data.resumen.total_errores} error(es) en ${data.columnas.length} columna${data.columnas.length === 1 ? '' : 's'} — no se guardó nada de esta sección.`,
+          columnas: data.columnas,
+        })
+        return
+      }
+      const seccion = seccionesDisponibles(store.camposDestino!.grupos).find((s) => s.orden === ordenGrupo)
+      setPreview({ ordenGrupo, titulo: seccion?.nombre ?? '', detalle: data.detalle })
+    } catch (err) {
+      setErrorSeccion({
+        resumen: err instanceof Error ? err.message : 'Error al validar la sección.',
+        columnas: [],
+      })
     }
-    const seccion = seccionesDisponibles(store.camposDestino!.grupos).find((s) => s.orden === ordenGrupo)
-    setPreview({ ordenGrupo, titulo: seccion?.nombre ?? '', detalle: data.detalle })
   }
 
   async function handleConfirmarPreview() {
     if (!preview) return
-    const data = await importar.mutateAsync(preview.ordenGrupo)
-    if (esError(data)) {
-      setPreview(null)
-      setErrorSeccion(
-        `✗ ${data.resumen.total_errores} error(es) — no se guardó nada de esta sección. Revisa las columnas mapeadas.`
-      )
-      return
-    }
-    const partes = Object.entries(data.modelos).map(
-      ([m, c]) => `${m}: ${c.creados} nuevo${c.creados === 1 ? '' : 's'}, ${c.reutilizados} reutilizado${c.reutilizados === 1 ? '' : 's'}`
-    )
-    setResultadoSeccion(`✓ Guardado en base de datos${partes.length ? ' — ' + partes.join(' · ') : ''}`)
-    setPreview(null)
-
-    if (!data.completo) {
-      const secciones = seccionesDisponibles(store.camposDestino!.grupos)
-      const idx = secciones.findIndex((s) => s.orden === preview.ordenGrupo)
-      if (idx !== -1 && idx < secciones.length - 1) {
-        store.setSeccionIdx(secciones[idx + 1].orden)
+    try {
+      const data = await importar.mutateAsync(preview.ordenGrupo)
+      if (esError(data)) {
+        setPreview(null)
+        setErrorSeccion({
+          resumen: `✗ ${data.resumen.total_errores} error(es) en ${data.columnas.length} columna${data.columnas.length === 1 ? '' : 's'} — no se guardó nada de esta sección.`,
+          columnas: data.columnas,
+        })
+        return
       }
+      const partes = Object.entries(data.modelos).map(
+        ([m, c]) => `${m}: ${c.creados} nuevo${c.creados === 1 ? '' : 's'}, ${c.reutilizados} reutilizado${c.reutilizados === 1 ? '' : 's'}`
+      )
+      setResultadoSeccion(`✓ Guardado en base de datos${partes.length ? ' — ' + partes.join(' · ') : ''}`)
+      setPreview(null)
+
+      if (!data.completo) {
+        const secciones = seccionesDisponibles(store.camposDestino!.grupos)
+        const idx = secciones.findIndex((s) => s.orden === preview.ordenGrupo)
+        if (idx !== -1 && idx < secciones.length - 1) {
+          store.setSeccionIdx(secciones[idx + 1].orden)
+        }
+      }
+    } catch (err) {
+      setPreview(null)
+      setErrorSeccion({
+        resumen: err instanceof Error ? err.message : 'Error al guardar la sección.',
+        columnas: [],
+      })
     }
   }
 
@@ -419,9 +439,30 @@ export function EtlUpload() {
               )}
               {resultadoSeccion && <span className="text-sm text-fg-muted basis-full">{resultadoSeccion}</span>}
               {errorSeccion && (
-                <span className="text-sm font-semibold text-red-600 dark:text-red-400 basis-full">
-                  {errorSeccion}
-                </span>
+                <div className="basis-full border border-red-500 rounded-lg p-3">
+                  <p className="text-sm font-semibold text-red-600 dark:text-red-400">{errorSeccion.resumen}</p>
+                  {errorSeccion.columnas.length > 0 && (
+                    <>
+                      <ul className="mt-1.5 flex flex-col gap-1">
+                        {errorSeccion.columnas.map((c) => (
+                          <li key={c.columna} className="text-xs text-fg-muted">
+                            <span className="font-semibold text-fg">{c.columna}</span>
+                            {' — '}
+                            {c.errores.length} error{c.errores.length === 1 ? '' : 'es'}
+                            {c.errores[0] && (
+                              <> (ej.: fila {c.errores[0].fila ?? '?'}: {c.errores[0].mensaje || c.errores[0].tipo})</>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-fg-muted mt-2">
+                        Corrige el mapeo de esas columnas — cada una tiene un botón{' '}
+                        <span className="font-semibold text-amber-700 dark:text-amber-400">🔍 Revisar</span> con el
+                        detalle completo — y vuelve a darle "Validar y guardar".
+                      </p>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>

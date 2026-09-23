@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Card } from '@/components/common/Card'
 import { TourButton } from '@/components/common/TourButton'
+import { FilterPanel } from '@/features/filters/FilterPanel'
 import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import { EmissionBarChart } from '@/components/charts/EmissionBarChart'
 import { EmissionTrendChart } from '@/components/charts/EmissionTrendChart'
@@ -14,9 +15,11 @@ import { MomHojarascaChart } from '@/components/charts/MomHojarascaChart'
 import { useSitios } from '@/hooks/useSitios'
 import { useSeries } from '@/hooks/useSeries'
 import { useResumenGeo } from '@/hooks/useResumenGeo'
+import { useFlujosFiltros } from '@/hooks/useGlobalFilters'
 import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { PIE_COLORS } from '@/utils/formatters'
+import type { GeoResumenFilters } from '@/types'
 
 const TOTAL_DEPARTAMENTOS_COLOMBIA = 33
 
@@ -30,14 +33,39 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
 }
 
 export function DashboardIndicadores() {
-  const { data: sitios, isLoading: sitiosLoading } = useSitios()
+  const flujosFiltros = useFlujosFiltros()
+  // Sitios y cobertura de departamentos, acotados por los mismos filtros
+  // geográficos/temporales que el mapa -sitios_geojson no acepta "gas".
+  const sitiosFiltros = useMemo(() => {
+    const f: GeoResumenFilters = { ...flujosFiltros }
+    delete f.categoria
+    delete f.gas
+    return f
+  }, [flujosFiltros])
+  const { data: sitios, isLoading: sitiosLoading } = useSitios(sitiosFiltros)
+  // "Muestras registradas" es un total transversal a todos los gases,
+  // independiente del selector "Gas" del panel -de ahí el override-.
   const { data: series, isLoading: seriesLoading } = useSeries({ gas: undefined })
-  const { data: departamentosData } = useResumenGeo('departamento', {})
+  const { data: departamentosData } = useResumenGeo('departamento', flujosFiltros)
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const flujosAnalizadorId = useAppStore((s) => s.flujosAnalizadorId)
   const setFlujosAnalizadorId = useAppStore((s) => s.setFlujosAnalizadorId)
   const flujosCondicionLuzId = useAppStore((s) => s.flujosCondicionLuzId)
   const setFlujosCondicionLuzId = useAppStore((s) => s.setFlujosCondicionLuzId)
+
+  // dimension="proyecto"/"analizador"/"condicion_luz" no se auto-filtran por
+  // su propio valor -colapsarían el gráfico a una sola barra-; selectedId ya
+  // resalta la selección visualmente.
+  const filtrosSinAnalizador = useMemo(() => {
+    const f = { ...flujosFiltros }
+    delete f.analizador
+    return f
+  }, [flujosFiltros])
+  const filtrosSinCondicionLuz = useMemo(() => {
+    const f = { ...flujosFiltros }
+    delete f.condicion_luz
+    return f
+  }, [flujosFiltros])
 
   const usoDistribucion = useMemo(() => {
     const counts = new Map<string, number>()
@@ -102,8 +130,16 @@ export function DashboardIndicadores() {
   })
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-6 max-w-6xl mx-auto w-full">
+    <div className="flex-1 p-6 flex gap-6 max-w-7xl mx-auto w-full items-start">
       <TourButton onClick={iniciarTour} />
+
+      <aside data-tour="dashboard-filtros" className="hidden lg:block w-[320px] min-w-[320px] sticky top-6">
+        <Card title="Filtros">
+          <FilterPanel />
+        </Card>
+      </aside>
+
+      <div className="flex-1 flex flex-col gap-6 min-w-0">
       <div>
         <h1 className="text-xl font-bold text-fg">Resumen de carbono</h1>
         <p className="text-sm text-fg-muted mt-1">
@@ -203,13 +239,13 @@ export function DashboardIndicadores() {
       />
       <div data-tour="dashboard-general" className="grid md:grid-cols-2 gap-4">
         <Card title="Muestras por región">
-          <CategoricalChart dimension="region" tipo="torta" />
+          <CategoricalChart dimension="region" tipo="torta" filters={flujosFiltros} />
         </Card>
         <Card title="Muestras por ecosistema / cobertura">
-          <CategoricalChart dimension="ecosistema" tipo="barras" />
+          <CategoricalChart dimension="ecosistema" tipo="barras" filters={flujosFiltros} />
         </Card>
         <Card title="% de participación por estado de conservación">
-          <CategoricalChart dimension="estado_conservacion" tipo="torta" />
+          <CategoricalChart dimension="estado_conservacion" tipo="torta" filters={flujosFiltros} />
         </Card>
         <Card title="Instalación de unidades de muestreo">
           <InstalacionTrendChart />
@@ -226,6 +262,7 @@ export function DashboardIndicadores() {
             dimension="analizador"
             tipo="barras"
             metrica="promedio"
+            filters={filtrosSinAnalizador}
             selectedId={flujosAnalizadorId}
             onSelect={(id) => setFlujosAnalizadorId(id === flujosAnalizadorId ? null : id)}
           />
@@ -235,6 +272,7 @@ export function DashboardIndicadores() {
             dimension="condicion_luz"
             tipo="barras"
             metrica="promedio"
+            filters={filtrosSinCondicionLuz}
             selectedId={flujosCondicionLuzId}
             onSelect={(id) => setFlujosCondicionLuzId(id === flujosCondicionLuzId ? null : id)}
           />
@@ -269,6 +307,7 @@ export function DashboardIndicadores() {
         <Card title="Carbono en hojarasca (g/m²)">
           <MomHojarascaChart />
         </Card>
+      </div>
       </div>
     </div>
   )

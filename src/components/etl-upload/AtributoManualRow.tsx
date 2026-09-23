@@ -1,4 +1,5 @@
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
+import { useFkChoices } from '@/hooks/useFkChoices'
 
 interface Props {
   i: number
@@ -8,10 +9,15 @@ const selectClass =
   'w-full bg-surface border border-border text-fg text-xs rounded-md px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal'
 
 export function AtributoManualRow({ i }: Props) {
-  const { camposDestino, atributosManuales, actualizarAtributoManual, quitarAtributoManual } = useEtlUploadStore()
+  const { fuenteId, camposDestino, atributosManuales, actualizarAtributoManual, quitarAtributoManual } =
+    useEtlUploadStore()
   const attr = atributosManuales[i]
   const campos = camposDestino?.modelos[attr.modelo] ?? []
   const campoMeta = campos.find((c) => c.nombre === attr.campo)
+  // Las instancias de un FK se piden aparte (ver useFkChoices) — antes venían
+  // precargadas en campoMeta.choices, ahora eso solo trae choices estáticos.
+  const fkChoices = useFkChoices(attr.modelo, attr.campo, fuenteId, campoMeta?.es_fk)
+  const choicesEfectivos = campoMeta?.es_fk ? fkChoices.data?.choices ?? [] : campoMeta?.choices ?? []
 
   return (
     <div className="flex items-start gap-3 px-4 py-3 border-b border-border last:border-b-0 flex-wrap">
@@ -38,18 +44,20 @@ export function AtributoManualRow({ i }: Props) {
       <span className="text-fg-subtle mt-1.5">→</span>
 
       <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-        {campoMeta?.es_fk && campoMeta.choices.length === 0 ? (
+        {campoMeta?.es_fk && fkChoices.isLoading ? (
+          <span className="text-xs italic text-fg-muted flex-1">Cargando opciones…</span>
+        ) : campoMeta?.es_fk && choicesEfectivos.length === 0 ? (
           <span className="text-xs italic text-fg-muted flex-1">
             Aún no hay ningún {campoMeta.modelo_fk} registrado en la base de datos.
           </span>
-        ) : campoMeta && campoMeta.choices.length > 0 ? (
+        ) : campoMeta && choicesEfectivos.length > 0 ? (
           <select
             value={attr.valor}
             onChange={(e) => actualizarAtributoManual(i, { valor: e.target.value })}
             className={selectClass}
           >
             <option value="">— valor —</option>
-            {campoMeta.choices.map((ch) => (
+            {choicesEfectivos.map((ch) => (
               <option key={String(ch.valor)} value={ch.valor}>
                 {ch.etiqueta}
               </option>

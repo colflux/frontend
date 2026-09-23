@@ -18,7 +18,6 @@ const CANALES = [
     desc: 'Sube tus archivos de datos',
     action: 'Ir al formulario',
     to: '/reportar/formulario',
-    disabled: true,
   },
 ]
 

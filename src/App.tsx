@@ -7,6 +7,7 @@ import { MapaInteractivo } from '@/pages/MapaInteractivo'
 import { DashboardIndicadores } from '@/pages/DashboardIndicadores'
 import { Participacion } from '@/pages/Participacion'
 import { ReportarFormulario } from '@/pages/ReportarFormulario'
+import { ReportarAvistamiento } from '@/pages/ReportarAvistamiento'
 import { EtlDatos } from '@/pages/EtlDatos'
 import { EtlReglasCampo } from '@/pages/EtlReglasCampo'
 import { EtlReglaDetalle } from '@/pages/EtlReglaDetalle'
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardIndicadores />} />
             <Route path="/reportar" element={<Participacion />} />
             <Route path="/reportar/formulario" element={<ReportarFormulario />} />
+            <Route path="/reportar/avistamiento" element={<ReportarAvistamiento />} />
             <Route path="/etl/datos" element={<EtlDatos />} />
             <Route path="/etl/reglas/campo" element={<EtlReglasCampo />} />
             <Route path="/etl/reglas/detalle" element={<EtlReglaDetalle />} />

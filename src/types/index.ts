@@ -50,7 +50,12 @@ export interface SeriesFilters {
   gas?: GasType
   sitio?: number
   proyecto?: number
+  vereda?: number
+  municipio?: number
   departamento?: number
+  region?: number
+  analizador?: number | string
+  condicion_luz?: string
 }
 
 // ── sitios georreferenciados (GeoJSON) ──────────────────────────────
@@ -64,6 +69,7 @@ export interface SitioUnidadMuestreo {
   id: number
   nombre: string
   tipo: string
+  unidad_experimental: string | null
 }
 
 export interface UltimaMedicionCO2 {
@@ -148,6 +154,15 @@ export interface DatosProyectoFilters {
   vista?: VistaDatos
   sitio?: number
   filtros?: Record<string, string>
+  // Igual que en GeoResumenFilters: acotan por vereda/municipio/departamento/
+  // región y por rango de fechas -solo aplican si el modelo base de la vista
+  // tiene esos campos; si no, el backend los ignora sin error-.
+  vereda?: number
+  municipio?: number
+  departamento?: number
+  region?: number
+  desde?: string
+  hasta?: string
   offset?: number
   limite?: number
 }
@@ -203,7 +218,16 @@ export interface GeoResumenFilters {
   municipio?: number
   vereda?: number
   region?: number
+  // Solo aplican cuando categoria es "flujos" -las demás categorías no
+  // tienen estos campos en el backend-.
+  analizador?: number | string
+  condicion_luz?: string
 }
+
+// Filtros de /api/geo/sitios/: los mismos que GeoResumenFilters salvo
+// "categoria" -sitios siempre trae las tres categorías a la vez, desagregadas
+// en resumen_por_gas/resumen_biomasa/resumen_cos-.
+export type SitiosFilters = Omit<GeoResumenFilters, 'categoria'>
 
 // ── resumen categórico no geográfico (/api/geo/resumen-categorico/) ─
 
@@ -244,6 +268,21 @@ export interface TendenciaInstalacionPunto {
 export interface TendenciaInstalacionResponse {
   agrupar: Agrupacion
   resultados: TendenciaInstalacionPunto[]
+}
+
+// ── filtros compartidos de los reportes de biomasa/cos/mom/instalación
+// (no tienen gas/analizador/condicion_luz -esos campos solo existen en
+// flujos-, pero sí proyecto/sitio/ubicación/fecha, igual que GeoResumenFilters) ──
+
+export interface ReporteGeoFilters {
+  proyecto?: number
+  sitio?: number
+  vereda?: number
+  municipio?: number
+  departamento?: number
+  region?: number
+  desde?: string
+  hasta?: string
 }
 
 // ── biomasa por taxón y producción (/api/reportes/biomasa/) ─────────
@@ -434,6 +473,10 @@ export interface CamposDestinoResponse {
   tipos_cobertura: TipoCobertura[]
 }
 
+export interface FkChoicesResponse {
+  choices: ChoiceCampo[]
+}
+
 // Selección hecha por el usuario para una columna del archivo (estado local
 // del wizard, no un tipo de respuesta del backend).
 export interface MapeoSeleccion {
@@ -607,6 +650,15 @@ export interface FuenteDatos {
 export interface FuentesDropdownResponse {
   fuentes: FuenteDatos[]
   proyectos: ProyectoResumen[]
+}
+
+// ── Formulario web: carga con mapeo asistido por IA (/api/ia-carga/*) ──
+
+export interface IaCargaSubirResponse {
+  fuente_id: number
+  carga_id: number
+  columnas: ColumnaOrigen[]
+  total_filas: number
 }
 
 export interface FuenteDatosPayload {
