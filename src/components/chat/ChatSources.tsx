@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { BotonDescarga } from '@/components/chat/BotonDescarga'
+import { esArchivoSubido, nombreArchivo } from '@/utils/archivosSubidos'
 import type { ChatSource } from '@/types'
 
 interface Props {
@@ -25,10 +27,15 @@ export function ChatSources({ sources }: Props) {
           {sources.map((s, i) => (
             <li key={`${s.source}-${i}`} className="bg-surface border border-border rounded-md p-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-fg truncate">{s.source}</span>
+                <span className="font-semibold text-fg truncate">{nombreArchivo(s.source)}</span>
                 <span className="shrink-0 text-fg-subtle">{(s.score * 100).toFixed(0)}%</span>
               </div>
               <p className="text-fg-muted mt-1">{s.content}</p>
+              {esArchivoSubido(s.source) && (
+                <div className="mt-1">
+                  <BotonDescarga archivo={s.source} />
+                </div>
+              )}
             </li>
           ))}
         </ul>

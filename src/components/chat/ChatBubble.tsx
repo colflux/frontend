@@ -1,3 +1,4 @@
+import { BotonDescarga } from '@/components/chat/BotonDescarga'
 import { ChatSources } from '@/components/chat/ChatSources'
 import type { ChatMessage } from '@/types'
 
@@ -22,6 +23,11 @@ export function ChatBubble({ message }: Props) {
         >
           {message.content}
         </div>
+        {!isUser && message.archivo && (
+          <div className="mt-1.5 text-xs">
+            <BotonDescarga archivo={message.archivo} />
+          </div>
+        )}
         {!isUser && message.sources?.length ? <ChatSources sources={message.sources} /> : null}
       </div>
     </div>
