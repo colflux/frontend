@@ -878,4 +878,8 @@ export interface CargaDocumentoResponse {
   archivo: string | null
   pendiente: boolean
   faltantes: string[]
+  // El archivo no era el descrito: se puede elegir otro sin repetir los pasos.
+  reintentar?: boolean
+  // Lugar interpretado por el asistente (paso de revisar el lugar).
+  lugar?: string | null
 }
