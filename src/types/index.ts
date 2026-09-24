@@ -428,6 +428,51 @@ export interface MapeoColumnaPrevio {
   valor_relleno_manual: string | null
 }
 
+// ── EDA (exploratory data analysis) de la fuente recién analizada — viene
+// incluido en AnalizarFuenteResponse.eda, calculado en el backend sobre el
+// DataFrame completo (no solo la muestra de ColumnaOrigen) ─────────────
+
+export interface EdaTopValor {
+  valor: string
+  conteo: number
+}
+
+export interface EdaColumna {
+  nombre: string
+  dtype: string
+  total: number
+  nulls: number
+  nulls_pct: number
+  valores_unicos: number
+  // Numéricas: minimo/maximo/promedio/desviacion/outliers.
+  // Fechas: solo minimo/maximo (como string).
+  // Categóricas/texto: top_valores.
+  minimo: number | string | null
+  maximo: number | string | null
+  promedio: number | null
+  desviacion: number | null
+  outliers: number | null
+  top_valores: EdaTopValor[] | null
+  // Solo se puebla cuando el archivo tiene varias hojas: de qué hoja viene
+  // esta columna (la activa, o alguna de las demás que también se analizan).
+  hoja: string | null
+}
+
+export interface EdaResultado {
+  total_filas: number
+  total_columnas: number
+  columnas: EdaColumna[]
+  filas_duplicadas: number
+  columnas_con_muchos_nulos: string[]
+  columnas_con_outliers: string[]
+}
+
+export interface HojaAnalizada {
+  total_filas: number
+  columnas: ColumnaOrigen[]
+  mapeos: MapeoColumnaPrevio[]
+}
+
 export interface AnalizarFuenteResponse {
   carga_id: number
   sheets: string[]
@@ -435,6 +480,12 @@ export interface AnalizarFuenteResponse {
   total_filas: number
   columnas: ColumnaOrigen[]
   mapeos: MapeoColumnaPrevio[]
+  eda: EdaResultado
+  // Todas las hojas no-"diccionario" del archivo, analizadas en un solo
+  // llamado -permite mapear varias en el mismo flujo sin volver a analizar
+  // el archivo por cada una-. Incluye también la hoja activa (redundante con
+  // los campos de arriba, para no forzar al frontend a tratarla distinto).
+  hojas: Record<string, HojaAnalizada>
 }
 
 export interface ChoiceCampo {
@@ -445,9 +496,11 @@ export interface ChoiceCampo {
 export interface CampoDestino {
   nombre: string
   verbose_name: string
+  help_text: string
   tipo: string
   tipo_raw: string
   requerido: boolean
+  automatico: boolean
   max_length: number | null
   choices: ChoiceCampo[]
   es_fk: boolean
@@ -483,6 +536,7 @@ export interface MapeoSeleccion {
   modelo: string
   campo: string
   tipoCobertura?: number | null
+  gasFijo?: string | null
   sugerido?: boolean
   estrategiaNulos?: string
   valorRellenoManual?: string
@@ -531,6 +585,7 @@ export interface MapeoColumnaPayload {
   estrategia_nulos?: string
   valor_relleno_manual?: string
   tipo_cobertura?: number | null
+  gas_fijo?: string | null
 }
 
 export interface PostMapeoResponse {
@@ -609,6 +664,7 @@ export interface MapeoColumna {
   valor_relleno_manual: string | null
   tipo_cobertura: number | null
   tipo_cobertura_nombre: string | null
+  gas_fijo: string | null
 }
 
 export interface MapeoCarga {

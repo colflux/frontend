@@ -11,11 +11,11 @@ export function useGuardarAvance() {
 
   return useMutation({
     mutationFn: () => {
-      const { fuenteId, cargaId, columnas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino } =
+      const { fuenteId, cargaId, hojaActiva, columnas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino } =
         useEtlUploadStore.getState()
       if (fuenteId == null || cargaId == null) throw new Error('Falta la fuente o la carga.')
       const mapeos = construirMapeos(columnas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino)
-      return etlService.postMapeo(token ?? '', fuenteId, cargaId, mapeos, true)
+      return etlService.postMapeo(token ?? '', fuenteId, cargaId, hojaActiva, mapeos, true)
     },
   })
 }

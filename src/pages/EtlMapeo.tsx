@@ -76,6 +76,11 @@ export function EtlMapeo() {
   })
   data?.mapeos.forEach((m) => columnasConocidas.add(m.columna_origen))
 
+  const columnasSinMapear = Array.from(columnasConocidas).filter((columna) => {
+    const m = mapeosPorColumna.get(columna)
+    return !m || !m.modelo_destino || !m.campo_destino
+  })
+
   const { start: iniciarTour } = useOnboardingTour({
     tourId: 'etl-mapeo',
     steps: [
@@ -128,6 +133,12 @@ export function EtlMapeo() {
               >
                 📊 Ver datos cargados
               </Link>
+              <Link
+                to={`/etl/upload?fuente=${fuenteId}&corregir=1`}
+                className="bg-surface border border-border text-fg-muted hover:text-fg text-xs font-semibold px-3.5 py-2 rounded-md transition-colors"
+              >
+                ✏️ Registrar columnas sin mapear
+              </Link>
             </>
           )}
           <Link
@@ -151,6 +162,24 @@ export function EtlMapeo() {
         <div className="text-center text-fg-muted text-sm py-10">Cargando mapeo…</div>
       ) : (
         <>
+          {columnasSinMapear.length > 0 && (
+            <div className="bg-amber-100 dark:bg-amber-950/40 border border-amber-500 rounded-lg px-4 py-3.5 my-5 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
+                  ⚠ {columnasSinMapear.length} columna{columnasSinMapear.length === 1 ? '' : 's'} del archivo sin
+                  mapear
+                </p>
+                <p className="text-xs text-fg-muted mt-1">{columnasSinMapear.join(', ')}</p>
+              </div>
+              <Link
+                to={`/etl/upload?fuente=${fuenteId}&corregir=1`}
+                className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-md transition-colors whitespace-nowrap"
+              >
+                Registrar columnas sin mapear →
+              </Link>
+            </div>
+          )}
+
           <h2 className="text-base font-extrabold text-brand-teal-dark dark:text-brand-teal-bright mt-6 mb-3">
             Columnas del archivo original y su destino
           </h2>

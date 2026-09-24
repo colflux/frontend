@@ -4,20 +4,53 @@ import type {
   CamposDestinoResponse,
   ColumnaConErrores,
   ColumnaOrigen,
+  EdaResultado,
   ExtraDestino,
+  HojaAnalizada,
   MapeoColumnaPrevio,
   MapeoSeleccion,
 } from '@/types'
-import { SIN_MAPEAR_ORDEN, aplicarSugerenciasHora, aplicarSugerenciasValores, sugerirMapeo } from '@/utils/etlMapeo'
+import {
+  SIN_MAPEAR_ORDEN,
+  aplicarSugerenciasHora,
+  aplicarSugerenciasValores,
+  seccionesReales,
+  sugerirMapeo,
+} from '@/utils/etlMapeo'
+
+// Estado de mapeo de UNA hoja del archivo -todo lo que depende de qué
+// columnas tiene esa hoja y cómo el usuario decidió mapearlas-. seccionIdx y
+// seccionesGuardadas NO viven acá: son compartidos entre hojas porque el
+// backend agrupa "hasta_grupo" sobre TODOS los mapeos de la carga (de
+// cualquier hoja), no por hoja -ver `_preparar_importacion` en el backend-.
+interface HojaSnapshot {
+  columnas: ColumnaOrigen[]
+  totalFilas: number
+  mapeoSeleccion: Record<number, MapeoSeleccion>
+  mapeoValores: Record<number, Record<string, string>>
+  atributosManuales: AtributoManual[]
+  extrasDestino: ExtraDestino[]
+}
+
+const hojaSnapshotVacia: HojaSnapshot = {
+  columnas: [],
+  totalFilas: 0,
+  mapeoSeleccion: {},
+  mapeoValores: {},
+  atributosManuales: [],
+  extrasDestino: [],
+}
 
 interface EtlUploadStore {
-  step: 1 | 2
+  step: 1 | 2 | 3 | 4
   fuenteId: number | null
   cargaId: number | null
   columnas: ColumnaOrigen[]
   sheets: string[]
   hojaActiva: string
+  hojas: Record<string, HojaSnapshot>
   totalFilas: number
+  edaResultado: EdaResultado | null
   camposDestino: CamposDestinoResponse | null
   mapeoSeleccion: Record<number, MapeoSeleccion>
   mapeoValores: Record<number, Record<string, string>>
@@ -36,38 +69,49 @@ interface EtlUploadStore {
       hojaActiva: string
       totalFilas: number
       mapeosPrevios: MapeoColumnaPrevio[]
+      eda: EdaResultado
+      hojas: Record<string, HojaAnalizada>
     },
     camposDestino: CamposDestinoResponse
   ) => void
+  // Cambia qué hoja se está mapeando en el paso 4 -guarda el mapeo en curso
+  // de la hoja actual y carga el de la nueva, sin volver a llamar al backend-.
+  setHojaActiva: (hoja: string) => void
   setModeloColumna: (idx: number, modelo: string) => void
   setCampoColumna: (idx: number, campo: string) => void
   setTipoCoberturaColumna: (idx: number, tipoCobertura: number | null) => void
+  setGasFijoColumna: (idx: number, gasFijo: string | null) => void
   setEstrategiaNulos: (idx: number, estrategia: string) => void
   setValorRellenoManual: (idx: number, valor: string) => void
   setValorChoice: (idx: number, valorOrigen: string, valorElegido: string) => void
   setAplicarRegexColumna: (idx: number, activar: boolean) => void
   setRegexPatronColumna: (idx: number, patron: string) => void
+  reasignarOrigenAtributo: (modelo: string, campo: string, nuevoIdx: number | null, idxsActuales: number[]) => void
   agregarAtributoManual: (modelo: string) => void
   actualizarAtributoManual: (i: number, patch: Partial<AtributoManual>) => void
   quitarAtributoManual: (i: number) => void
+  activarAtributoManualDeCampo: (modelo: string, campo: string) => void
+  quitarAtributoManualDeCampo: (modelo: string, campo: string) => void
   agregarExtraDestino: (colIdx: number) => void
   actualizarExtraDestino: (extraIdx: number, patch: Partial<ExtraDestino>) => void
   quitarExtraDestino: (extraIdx: number) => void
   setUltimosErroresPorColumna: (columnas: ColumnaConErrores[]) => void
   setSeccionIdx: (orden: number) => void
   marcarSeccionGuardada: (orden: number) => void
-  setStep: (step: 1 | 2) => void
+  setStep: (step: 1 | 2 | 3 | 4) => void
   reset: () => void
 }
 
 const initialState = {
-  step: 1 as const,
+  step: 1 as 1 | 2 | 3 | 4,
   fuenteId: null as number | null,
   cargaId: null as number | null,
   columnas: [] as ColumnaOrigen[],
   sheets: [] as string[],
   hojaActiva: '',
+  hojas: {} as Record<string, HojaSnapshot>,
   totalFilas: 0,
+  edaResultado: null as EdaResultado | null,
   camposDestino: null as CamposDestinoResponse | null,
   mapeoSeleccion: {} as Record<number, MapeoSeleccion>,
   mapeoValores: {} as Record<number, Record<string, string>>,
@@ -154,41 +198,82 @@ function aplicarSugerenciasMapeo(
   return resultado
 }
 
+// Arma el HojaSnapshot de una hoja: recupera lo guardado en cargas previas y
+// aplica las mismas sugerencias automáticas (nombre/valores/hora) que antes
+// solo corrían para la hoja activa -ahora corren por cada hoja analizada-.
+function construirSnapshotHoja(
+  columnas: ColumnaOrigen[],
+  totalFilas: number,
+  mapeosPrevios: MapeoColumnaPrevio[],
+  camposDestino: CamposDestinoResponse
+): HojaSnapshot {
+  const {
+    mapeoSeleccion: recuperado,
+    mapeoValores: valoresRecuperados,
+    atributosManuales,
+    extrasDestino,
+  } = aplicarMapeosGuardados(columnas, mapeosPrevios)
+  const mapeoSeleccion = aplicarSugerenciasMapeo(columnas, recuperado, camposDestino.modelos)
+  const mapeoValoresChoices = aplicarSugerenciasValores(columnas, mapeoSeleccion, valoresRecuperados, camposDestino.modelos)
+  const mapeoValores = aplicarSugerenciasHora(columnas, mapeoValoresChoices)
+  return { columnas, totalFilas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino }
+}
+
 export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
   ...initialState,
   setFuenteId: (fuenteId) => set({ ...initialState, seccionesGuardadas: new Set(), fuenteId }),
   setAnalisis: (analisis, camposDestino) => {
-    const {
-      mapeoSeleccion: recuperado,
-      mapeoValores: valoresRecuperados,
-      atributosManuales,
-      extrasDestino,
-    } = aplicarMapeosGuardados(analisis.columnas, analisis.mapeosPrevios)
-    const mapeoSeleccion = aplicarSugerenciasMapeo(analisis.columnas, recuperado, camposDestino.modelos)
-    const mapeoValoresChoices = aplicarSugerenciasValores(
-      analisis.columnas,
-      mapeoSeleccion,
-      valoresRecuperados,
-      camposDestino.modelos
-    )
-    const mapeoValores = aplicarSugerenciasHora(analisis.columnas, mapeoValoresChoices)
+    const hojas: Record<string, HojaSnapshot> = {}
+    Object.entries(analisis.hojas).forEach(([nombre, info]) => {
+      hojas[nombre] = construirSnapshotHoja(info.columnas, info.total_filas, info.mapeos, camposDestino)
+    })
+    const activa =
+      hojas[analisis.hojaActiva] ??
+      construirSnapshotHoja(analisis.columnas, analisis.totalFilas, analisis.mapeosPrevios, camposDestino)
+    const primeraSeccion = seccionesReales(camposDestino.grupos)[0]?.orden ?? SIN_MAPEAR_ORDEN
     set({
       step: 2,
       cargaId: analisis.cargaId,
-      columnas: analisis.columnas,
       sheets: analisis.sheets,
       hojaActiva: analisis.hojaActiva,
-      totalFilas: analisis.totalFilas,
+      hojas,
+      columnas: activa.columnas,
+      totalFilas: activa.totalFilas,
+      mapeoSeleccion: activa.mapeoSeleccion,
+      mapeoValores: activa.mapeoValores,
+      atributosManuales: activa.atributosManuales,
+      extrasDestino: activa.extrasDestino,
+      edaResultado: analisis.eda,
       camposDestino,
-      mapeoSeleccion,
-      mapeoValores,
-      atributosManuales,
-      extrasDestino,
       ultimosErroresPorColumna: {},
-      seccionIdx: SIN_MAPEAR_ORDEN,
+      seccionIdx: primeraSeccion,
       seccionesGuardadas: new Set(),
     })
   },
+  setHojaActiva: (hoja) =>
+    set((s) => {
+      if (hoja === s.hojaActiva) return {}
+      const snapshotActual: HojaSnapshot = {
+        columnas: s.columnas,
+        totalFilas: s.totalFilas,
+        mapeoSeleccion: s.mapeoSeleccion,
+        mapeoValores: s.mapeoValores,
+        atributosManuales: s.atributosManuales,
+        extrasDestino: s.extrasDestino,
+      }
+      const hojas = { ...s.hojas, [s.hojaActiva]: snapshotActual }
+      const siguiente = hojas[hoja] ?? hojaSnapshotVacia
+      return {
+        hojas,
+        hojaActiva: hoja,
+        columnas: siguiente.columnas,
+        totalFilas: siguiente.totalFilas,
+        mapeoSeleccion: siguiente.mapeoSeleccion,
+        mapeoValores: siguiente.mapeoValores,
+        atributosManuales: siguiente.atributosManuales,
+        extrasDestino: siguiente.extrasDestino,
+      }
+    }),
   setModeloColumna: (idx, modelo) =>
     set((s) => ({
       mapeoSeleccion: {
@@ -201,6 +286,7 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
           aplicarRegex: false,
           regexPatron: '',
           tipoCobertura: null,
+          gasFijo: null,
         },
       },
     })),
@@ -211,6 +297,10 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
   setTipoCoberturaColumna: (idx, tipoCobertura) =>
     set((s) => ({
       mapeoSeleccion: { ...s.mapeoSeleccion, [idx]: { ...s.mapeoSeleccion[idx], tipoCobertura } },
+    })),
+  setGasFijoColumna: (idx, gasFijo) =>
+    set((s) => ({
+      mapeoSeleccion: { ...s.mapeoSeleccion, [idx]: { ...s.mapeoSeleccion[idx], gasFijo } },
     })),
   setEstrategiaNulos: (idx, estrategiaNulos) =>
     set((s) => ({
@@ -232,6 +322,29 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
     set((s) => ({
       mapeoSeleccion: { ...s.mapeoSeleccion, [idx]: { ...s.mapeoSeleccion[idx], regexPatron } },
     })),
+  reasignarOrigenAtributo: (modelo, campo, nuevoIdx, idxsActuales) =>
+    set((s) => {
+      const mapeoSeleccion = { ...s.mapeoSeleccion }
+      idxsActuales.forEach((idx) => {
+        if (idx === nuevoIdx) return
+        mapeoSeleccion[idx] = {
+          modelo: '',
+          campo: '',
+          estrategiaNulos: mapeoSeleccion[idx]?.estrategiaNulos,
+          valorRellenoManual: mapeoSeleccion[idx]?.valorRellenoManual,
+        }
+      })
+      if (nuevoIdx != null) {
+        const prev = mapeoSeleccion[nuevoIdx]
+        mapeoSeleccion[nuevoIdx] = {
+          modelo,
+          campo,
+          estrategiaNulos: prev?.estrategiaNulos,
+          valorRellenoManual: prev?.valorRellenoManual,
+        }
+      }
+      return { mapeoSeleccion }
+    }),
   agregarAtributoManual: (modelo) =>
     set((s) => ({ atributosManuales: [...s.atributosManuales, { modelo, campo: '', valor: '' }] })),
   actualizarAtributoManual: (i, patch) =>
@@ -240,6 +353,16 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
     })),
   quitarAtributoManual: (i) =>
     set((s) => ({ atributosManuales: s.atributosManuales.filter((_, idx) => idx !== i) })),
+  activarAtributoManualDeCampo: (modelo, campo) =>
+    set((s) => {
+      const yaExiste = s.atributosManuales.some((a) => a.modelo === modelo && a.campo === campo)
+      if (yaExiste) return {}
+      return { atributosManuales: [...s.atributosManuales, { modelo, campo, valor: '' }] }
+    }),
+  quitarAtributoManualDeCampo: (modelo, campo) =>
+    set((s) => ({
+      atributosManuales: s.atributosManuales.filter((a) => !(a.modelo === modelo && a.campo === campo)),
+    })),
   agregarExtraDestino: (colIdx) =>
     set((s) => ({
       extrasDestino: [

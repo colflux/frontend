@@ -37,11 +37,12 @@ async function fetchSeccion<T>(url: string, token: string, hastaGrupo: number): 
 }
 
 export const etlService = {
-  analizarFuente: (token: string, fuenteId: number, archivo?: File): Promise<AnalizarFuenteResponse> => {
+  analizarFuente: (token: string, fuenteId: number, archivo?: File, hoja?: string): Promise<AnalizarFuenteResponse> => {
     let body: FormData | undefined
-    if (archivo) {
+    if (archivo || hoja) {
       body = new FormData()
-      body.append('archivo', archivo)
+      if (archivo) body.append('archivo', archivo)
+      if (hoja) body.append('hoja', hoja)
     }
     return fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/upload/`, {
       method: 'POST',
@@ -66,13 +67,14 @@ export const etlService = {
     token: string,
     fuenteId: number,
     cargaId: number,
+    hoja: string,
     mapeos: MapeoColumnaPayload[],
     parcial: boolean
   ): Promise<PostMapeoResponse> =>
     fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/mapeo/`, {
       method: 'POST',
       headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mapeos, parcial }),
+      body: JSON.stringify({ hoja, mapeos, parcial }),
     }),
 
   previsualizarSeccion: (
