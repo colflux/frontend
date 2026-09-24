@@ -808,4 +808,18 @@ export interface ChatMessage {
   content: string
   sources?: ChatSource[]
   error?: boolean
+  // Archivo recién subido (clave en el bucket): muestra el botón «Descargar».
+  archivo?: string
+}
+
+// ── subida de documentos desde el chat (POST {VITE_API_URL}/documentos) ──
+
+export interface CargaDocumentoResponse {
+  aceptado: boolean
+  mensaje: string
+  tipo: string | null
+  fragmentos: number
+  archivo: string | null
+  pendiente: boolean
+  faltantes: string[]
 }

@@ -1,5 +1,10 @@
+import { BotonDescarga } from '@/components/chat/BotonDescarga'
 import { ChatSources } from '@/components/chat/ChatSources'
+import { VistaImagen } from '@/components/chat/VistaImagen'
 import type { ChatMessage } from '@/types'
+import { esImagenSubida } from '@/utils/archivosSubidos'
+
+const MAX_IMAGENES = 4
 
 interface Props {
   message: ChatMessage
@@ -7,6 +12,13 @@ interface Props {
 
 export function ChatBubble({ message }: Props) {
   const isUser = message.role === 'user'
+  // Imágenes subidas que menciona el mensaje: la recién guardada o las citadas
+  // como fuente. Se muestran debajo del texto, sin abrir «fuentes».
+  const imagenes = isUser
+    ? []
+    : [...new Set([message.archivo ?? '', ...(message.sources ?? []).map((s) => s.source)])]
+        .filter(esImagenSubida)
+        .slice(0, MAX_IMAGENES)
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -22,6 +34,18 @@ export function ChatBubble({ message }: Props) {
         >
           {message.content}
         </div>
+        {imagenes.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {imagenes.map((archivo) => (
+              <VistaImagen key={archivo} archivo={archivo} />
+            ))}
+          </div>
+        )}
+        {!isUser && message.archivo && (
+          <div className="mt-1.5 text-xs">
+            <BotonDescarga archivo={message.archivo} />
+          </div>
+        )}
         {!isUser && message.sources?.length ? <ChatSources sources={message.sources} /> : null}
       </div>
     </div>

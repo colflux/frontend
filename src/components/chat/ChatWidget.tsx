@@ -6,12 +6,26 @@ import { ChatInput } from '@/components/chat/ChatInput'
 
 export function ChatWidget() {
   const [open, setOpen] = useState(false)
-  const { messages, sendMessage, isSending } = useChat()
+  const {
+    messages,
+    sendMessage,
+    uploadFile,
+    pedirArchivo,
+    isSending,
+    puedeSubir,
+    puedeElegirArchivo,
+    placeholder,
+  } = useChat()
+  const ultimoRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // Mientras el asistente escribe se muestra el indicador al final; cuando
+  // llega un mensaje, se muestra desde su comienzo para que las respuestas
+  // largas (como la bienvenida) no aparezcan cortadas a la mitad.
   useEffect(() => {
     if (!open) return
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (isSending) bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    else ultimoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [messages, isSending, open])
 
   if (!open) {
@@ -43,19 +57,24 @@ export function ChatWidget() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
-        {!messages.length && (
-          <p className="text-sm text-fg-subtle text-center mt-10">
-            Escribe una pregunta para comenzar la conversación.
-          </p>
-        )}
-        {messages.map((m) => (
-          <ChatBubble key={m.id} message={m} />
+        {messages.map((m, i) => (
+          <div key={m.id} ref={i === messages.length - 1 ? ultimoRef : undefined} className="scroll-mt-3">
+            <ChatBubble message={m} />
+          </div>
         ))}
         {isSending && <ChatTypingIndicator />}
         <div ref={bottomRef} />
       </div>
 
-      <ChatInput onSend={sendMessage} disabled={isSending} />
+      <ChatInput
+        onSend={sendMessage}
+        disabled={isSending}
+        placeholder={placeholder}
+        onUpload={uploadFile}
+        onPedirArchivo={pedirArchivo}
+        puedeSubir={puedeSubir}
+        puedeElegirArchivo={puedeElegirArchivo}
+      />
     </div>
   )
 }
