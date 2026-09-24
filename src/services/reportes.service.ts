@@ -14,7 +14,7 @@ import type {
 // propio environment:, así que este fallback nunca se usa ahí.
 const REPORTES_API_BASE = import.meta.env.VITE_REPORTES_API_BASE_URL ?? '/api/reportes'
 
-function buildQuery(params: Record<string, string | number | undefined>): string {
+function buildQuery(params: object): string {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([k, v]) => {
     if (v != null) search.set(k, String(v))

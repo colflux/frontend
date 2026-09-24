@@ -4,7 +4,16 @@ import { useRolActual } from '@/hooks/useRolActual'
 import { TourButton } from '@/components/common/TourButton'
 import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 
-const CANALES = [
+interface Canal {
+  icon: string
+  title: string
+  desc: string
+  action: string
+  to: string
+  disabled?: boolean // canal visible pero aún no disponible ("Próximamente")
+}
+
+const CANALES: Canal[] = [
   {
     icon: '📂',
     title: 'Gestión de Datos',
