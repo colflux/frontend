@@ -33,6 +33,54 @@ export function seccionesReales(grupos: Record<string, GrupoModeloInfo>): Seccio
     .sort((a, b) => a.orden - b.orden)
 }
 
+// Texto breve de qué representa cada sección — usado tanto en el resumen
+// (paso 2) como en el encabezado de la sección durante el mapeo (paso 3).
+export const DESCRIPCION_SECCION: Record<string, string> = {
+  'Unidad Experimental': 'El sitio de monitoreo más amplio (ej. un páramo o humedal completo).',
+  'Unidad de Muestreo': 'Los puntos o parcelas concretas donde se toman las mediciones dentro de la unidad experimental. Acá defines su nombre y tipo (parcela, transecto, etc).',
+  'Detalles de muestreo': 'Atributos específicos según el tipo de unidad de muestreo que definiste en la sección anterior (medidas de la parcela, longitud del transecto, etc).',
+  Sitio: 'Datos de ubicación del punto de muestreo (coordenadas, altitud, etc).',
+  Clima: 'Variables climáticas registradas en el sitio (temperatura, precipitación, etc).',
+  'Cobertura y Vegetación': 'Qué tipo de cobertura o vegetación hay en cada unidad de muestreo.',
+  'Carbono Orgánico del Suelo (COS)': 'Mediciones de carbono almacenado en el suelo.',
+  Biomasa: 'Mediciones de biomasa vegetal (aérea, subterránea, etc).',
+  'Materia Orgánica Muerta (MOM)': 'Mediciones de hojarasca, madera muerta y otra materia orgánica no viva.',
+  'Muestras GEI': 'Muestras de gases de efecto invernadero tomadas en campo.',
+}
+
+export interface CampoSeccionInfo {
+  etiqueta: string
+  descripcion: string
+}
+
+// Atributos requeridos/opcionales/automáticos de los modelos que caen dentro
+// de una sección — para mostrarle al usuario, antes de mapear, qué atributos
+// necesita la sección, cuáles son opcionales y cuáles se llenan solos. Los
+// automáticos (p. ej. UnidadExperimental.proyecto, ver
+// CAMPOS_AUTOMATICOS_ETL en el backend) salen de "requeridos": el usuario no
+// tiene que mapearlos, ya se resuelven desde la fuente/carga.
+export function camposDeSeccion(
+  orden: number,
+  grupos: Record<string, GrupoModeloInfo>,
+  modelos: Record<string, CampoDestino[]>
+): { automaticos: CampoSeccionInfo[]; requeridos: CampoSeccionInfo[]; opcionales: CampoSeccionInfo[] } {
+  const modelosSeccion = Object.entries(grupos)
+    .filter(([, g]) => g.orden === orden)
+    .map(([m]) => m)
+  const automaticos: CampoSeccionInfo[] = []
+  const requeridos: CampoSeccionInfo[] = []
+  const opcionales: CampoSeccionInfo[] = []
+  modelosSeccion.forEach((m) => {
+    ;(modelos[m] ?? []).forEach((c) => {
+      const info = { etiqueta: c.verbose_name || c.nombre, descripcion: c.help_text }
+      if (c.automatico) automaticos.push(info)
+      else if (c.requerido) requeridos.push(info)
+      else opcionales.push(info)
+    })
+  })
+  return { automaticos, requeridos, opcionales }
+}
+
 // Cada sección queda bloqueada hasta que TODAS las anteriores (en orden)
 // ya se hayan guardado en base de datos, no solo la primera.
 export function seccionBloqueada(
@@ -67,6 +115,19 @@ export function contarColumnasSinMapear(
   mapeoSeleccion: Record<number, MapeoSeleccion>
 ): number {
   return columnas.filter((_, idx) => !mapeoSeleccion[idx]).length
+}
+
+// Lookup inverso: qué columna(s) del archivo están actualmente mapeadas a un
+// atributo destino dado (modelo+campo). Puede haber más de una si el
+// auto-sugeridor apuntó varias columnas al mismo atributo por error.
+export function columnasMapeadasA(
+  modelo: string,
+  campo: string,
+  mapeoSeleccion: Record<number, MapeoSeleccion>
+): number[] {
+  return Object.entries(mapeoSeleccion)
+    .filter(([, s]) => s.modelo === modelo && s.campo === campo)
+    .map(([idx]) => Number(idx))
 }
 
 export function normalizarNombre(s: string): string {
@@ -152,6 +213,8 @@ export function construirMapeos(
         valor_relleno_manual: seleccion.valorRellenoManual || '',
         tipo_cobertura:
           seleccion.modelo === 'Cobertura' && seleccion.campo === 'nombre' ? seleccion.tipoCobertura ?? null : null,
+        gas_fijo:
+          seleccion.modelo === 'SubmuestraGEI' && seleccion.campo === 'valor' ? seleccion.gasFijo ?? null : null,
       }
     })
     .filter((m): m is MapeoColumnaPayload => m !== null)
@@ -302,11 +365,15 @@ export function columnaEsCompleja(
   idx: number,
   col: ColumnaOrigen,
   mapeoSeleccion: Record<number, MapeoSeleccion>,
-  ultimosErroresPorColumna: Record<string, ErrorFila[]>
+  ultimosErroresPorColumna: Record<string, ErrorFila[]>,
+  campoRequerido = false
 ): boolean {
   const seleccion = mapeoSeleccion[idx]
   const tieneHorasAmbiguas = Object.keys(col.sugerencias_hora ?? {}).length > 0
-  const tieneNulosPorResolver = Boolean(seleccion?.modelo && seleccion.campo && col.nulls)
+  // Un campo opcional con vacíos no amerita alerta: "dejar vacío" (el valor
+  // por defecto) ya es una estrategia válida. Solo se marca cuando el campo
+  // destino es requerido, porque ahí sí hace falta decidir algo.
+  const tieneNulosPorResolver = Boolean(seleccion?.modelo && seleccion.campo && col.nulls && campoRequerido)
   const erroresPrevios = ultimosErroresPorColumna[col.nombre]
   const tieneErroresPrevios = Boolean(erroresPrevios && erroresPrevios.length)
   return tieneHorasAmbiguas || tieneNulosPorResolver || tieneErroresPrevios

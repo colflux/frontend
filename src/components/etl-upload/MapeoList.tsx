@@ -1,12 +1,14 @@
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
 import { MapeoRow } from './MapeoRow'
 import { ExtraRow } from './ExtraRow'
+import { AtributoRow } from './AtributoRow'
 import { AtributoManualRow } from './AtributoManualRow'
 import {
   SIN_MAPEAR_ORDEN,
   unidadExperimentalYaMapeada,
   origenUnidadExperimentalMapeada,
   valoresDetectadosParaCampo,
+  columnasMapeadasA,
 } from '@/utils/etlMapeo'
 
 const IGNORADAS = '__ignoradas__'
@@ -69,17 +71,26 @@ export function MapeoList() {
   }
 
   function renderGrupoEntidad(modelo: string, items: ItemGrupo[]) {
-    const cols = items.filter((i): i is { kind: 'col'; idx: number } => i.kind === 'col')
     const extras = items.filter((i): i is { kind: 'extra'; extraIdx: number } => i.kind === 'extra')
-    const atributosDeModelo = atributosManuales
-      .map((attr, i) => ({ attr, i }))
-      .filter(({ attr }) => attr.modelo === modelo)
     const grupoInfo = grupoDeModelo(modelo)
     const color = colorDeModelo(modelo)
-    const partes: string[] = []
-    if (cols.length) partes.push(`${cols.length} columna${cols.length > 1 ? 's' : ''}`)
-    if (extras.length) partes.push(`${extras.length} extra${extras.length > 1 ? 's' : ''}`)
-    if (atributosDeModelo.length) partes.push(`${atributosDeModelo.length} manual${atributosDeModelo.length > 1 ? 'es' : ''}`)
+    const camposModelo = (camposDestino!.modelos[modelo] ?? []).filter((c) => !c.automatico)
+    // Los campos de camposModelo ya tienen su propio selector "escribir manual" inline
+    // en AtributoRow — solo se listan aquí los atributos manuales para campos que no
+    // están en esa lista (p. ej. campos automáticos, agregados vía "Agregar atributo").
+    const atributosDeModelo = atributosManuales
+      .map((attr, i) => ({ attr, i }))
+      .filter(({ attr }) => attr.modelo === modelo && !camposModelo.some((c) => c.nombre === attr.campo))
+    const mapeadosCount = camposModelo.filter(
+      (c) =>
+        columnasMapeadasA(modelo, c.nombre, mapeoSeleccion).length > 0 ||
+        atributosManuales.some((a) => a.modelo === modelo && a.campo === c.nombre && a.valor)
+    ).length
+    const transectoDesvinculado = modelo === 'Transecto' && !tipoUnidadEsTransecto
+    const partes: string[] = [
+      transectoDesvinculado ? 'no aplica' : `${mapeadosCount}/${camposModelo.length} atributos mapeados`,
+    ]
+    if (!transectoDesvinculado && extras.length) partes.push(`${extras.length} extra${extras.length > 1 ? 's' : ''}`)
 
     return (
       <div key={modelo} className="border border-border rounded-lg mb-4 overflow-hidden">
@@ -130,28 +141,37 @@ export function MapeoList() {
           </div>
         )}
 
-        {items.map((item) =>
-          item.kind === 'extra' ? (
-            <ExtraRow key={`extra-${item.extraIdx}`} extraIdx={item.extraIdx} />
-          ) : (
-            <MapeoRow key={`col-${item.idx}`} idx={item.idx} modeloKeys={modeloKeysPara(seccionIdx)} />
-          )
+        {!transectoDesvinculado && (
+          <>
+            {camposModelo.map((c) => (
+              <AtributoRow
+                key={c.nombre}
+                modelo={modelo}
+                campoMeta={c}
+                colIdxsMapeados={columnasMapeadasA(modelo, c.nombre, mapeoSeleccion)}
+              />
+            ))}
+
+            {extras.map((item) => (
+              <ExtraRow key={`extra-${item.extraIdx}`} extraIdx={item.extraIdx} />
+            ))}
+
+            {atributosDeModelo.map(({ i }) => (
+              <AtributoManualRow key={i} i={i} />
+            ))}
+
+            <div className="px-4 py-2.5">
+              <button
+                type="button"
+                title={`Agrega un campo de ${modelo} que no viene en la fuente y asígnale un valor fijo para todas las filas`}
+                onClick={() => agregarAtributoManual(modelo)}
+                className="border border-dashed border-border bg-panel text-fg-muted hover:text-fg text-xs font-semibold rounded-md px-3 py-1.5"
+              >
+                ➕ Agregar atributo
+              </button>
+            </div>
+          </>
         )}
-
-        {atributosDeModelo.map(({ i }) => (
-          <AtributoManualRow key={i} i={i} />
-        ))}
-
-        <div className="px-4 py-2.5">
-          <button
-            type="button"
-            title={`Agrega un campo de ${modelo} que no viene en la fuente y asígnale un valor fijo para todas las filas`}
-            onClick={() => agregarAtributoManual(modelo)}
-            className="border border-dashed border-border bg-panel text-fg-muted hover:text-fg text-xs font-semibold rounded-md px-3 py-1.5"
-          >
-            ➕ Agregar atributo
-          </button>
-        </div>
       </div>
     )
   }

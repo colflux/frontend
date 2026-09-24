@@ -17,11 +17,11 @@ export function usePrevisualizarSeccion() {
 
   return useMutation({
     mutationFn: async (hastaGrupo: number) => {
-      const { fuenteId, cargaId, columnas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino } =
+      const { fuenteId, cargaId, hojaActiva, columnas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino } =
         useEtlUploadStore.getState()
       if (fuenteId == null || cargaId == null) throw new Error('Falta la fuente o la carga.')
       const mapeos = construirMapeos(columnas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino)
-      await etlService.postMapeo(token ?? '', fuenteId, cargaId, mapeos, true)
+      await etlService.postMapeo(token ?? '', fuenteId, cargaId, hojaActiva, mapeos, true)
       const data = await etlService.previsualizarSeccion(token ?? '', fuenteId, cargaId, hastaGrupo)
       return data
     },
@@ -37,9 +37,12 @@ export function useImportarSeccion() {
   const token = useAuthStore((s) => s.token)
 
   return useMutation({
-    mutationFn: (hastaGrupo: number) => {
-      const { fuenteId, cargaId } = useEtlUploadStore.getState()
+    mutationFn: async (hastaGrupo: number) => {
+      const { fuenteId, cargaId, hojaActiva, columnas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino } =
+        useEtlUploadStore.getState()
       if (fuenteId == null || cargaId == null) throw new Error('Falta la fuente o la carga.')
+      const mapeos = construirMapeos(columnas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino)
+      await etlService.postMapeo(token ?? '', fuenteId, cargaId, hojaActiva, mapeos, true)
       return etlService.importarSeccion(token ?? '', fuenteId, cargaId, hastaGrupo)
     },
     onSuccess: (data, hastaGrupo) => {

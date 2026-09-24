@@ -3,23 +3,27 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { SeccionNav } from '@/components/etl-upload/SeccionNav'
 import { MapeoList } from '@/components/etl-upload/MapeoList'
-import { PreviewModal } from '@/components/etl-upload/PreviewModal'
+import { AnalisisEDA } from '@/components/etl-upload/AnalisisEDA'
+import { ResumenAnalisis } from '@/components/etl-upload/ResumenAnalisis'
+import { ConfirmModal } from '@/components/etl-upload/ConfirmModal'
 import { TourButton } from '@/components/common/TourButton'
 import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import { useFuentesDropdown } from '@/hooks/useFuentesDropdown'
 import { useAnalizarFuente } from '@/hooks/useAnalizarFuente'
 import { useGuardarAvance } from '@/hooks/useGuardarAvance'
-import { usePrevisualizarSeccion, useImportarSeccion, esError } from '@/hooks/useSeccionMutations'
+import { useImportarSeccion, esError } from '@/hooks/useSeccionMutations'
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
 import { seccionesDisponibles, seccionBloqueada, SIN_MAPEAR_ORDEN } from '@/utils/etlMapeo'
-import type { ColumnaConErrores, DetalleModeloPreview, FuenteDatos } from '@/types'
+import type { ColumnaConErrores, FuenteDatos } from '@/types'
 
 const SECCIONES_OPCIONALES = ['Sitio', 'Clima']
 
-function Stepper({ step }: { step: 1 | 2 }) {
+function Stepper({ step }: { step: 1 | 2 | 3 | 4 }) {
   const pasos = [
     { n: 1, label: 'Analizar fuente' },
-    { n: 2, label: 'Mapear y guardar por sección' },
+    { n: 2, label: 'Análisis EDA' },
+    { n: 3, label: 'Qué encontramos' },
+    { n: 4, label: 'Mapear y guardar por sección' },
   ]
   return (
     <div className="flex items-center gap-3 py-4">
@@ -57,6 +61,7 @@ function badgeClass(kind: 'tipo' | 'estado') {
 export function EtlUpload() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedFuenteId = searchParams.get('fuente')
+  const modoCorreccion = searchParams.get('corregir') === '1'
 
   const { data: dropdownData, isLoading: fuentesLoading } = useFuentesDropdown()
   const store = useEtlUploadStore()
@@ -104,25 +109,28 @@ export function EtlUpload() {
     analizar.mutate({ fuenteId: store.fuenteId, archivo: archivo ?? undefined })
   }
 
+  // Cambia qué hoja se está mapeando/analizando -todas las hojas del
+  // archivo ya se analizaron en un solo llamado a "Analizar archivo", así
+  // que esto es un cambio de estado local (sin ir al backend): conserva el
+  // avance de mapeo de cada hoja por separado.
+  function handleCambiarHoja(hoja: string) {
+    store.setHojaActiva(hoja)
+  }
+
   const errorAnalizar = analizar.isError
     ? analizar.error instanceof Error
       ? analizar.error.message
       : 'Error desconocido'
     : null
 
-  // ── Paso 2: guardar avance / guardar sección + preview ──────────────────
+  // ── Paso 2: guardar avance / guardar sección ─────────────────────────────
   const guardarAvance = useGuardarAvance()
-  const previsualizar = usePrevisualizarSeccion()
   const importar = useImportarSeccion()
 
   const [avanceGuardadoInfo, setAvanceGuardadoInfo] = useState('')
   const [errorSeccion, setErrorSeccion] = useState<{ resumen: string; columnas: ColumnaConErrores[] } | null>(null)
   const [resultadoSeccion, setResultadoSeccion] = useState('')
-  const [preview, setPreview] = useState<{
-    ordenGrupo: number
-    titulo: string
-    detalle: Record<string, DetalleModeloPreview>
-  } | null>(null)
+  const [confirmSinDatos, setConfirmSinDatos] = useState<{ ordenGrupo: number; nombreSeccion: string } | null>(null)
 
   async function handleGuardarAvance() {
     setErrorSeccion(null)
@@ -147,31 +155,8 @@ export function EtlUpload() {
     setResultadoSeccion('')
     const ordenGrupo = store.seccionIdx
     try {
-      const data = await previsualizar.mutateAsync(ordenGrupo)
+      const data = await importar.mutateAsync(ordenGrupo)
       if (esError(data)) {
-        setResultadoSeccion('')
-        setErrorSeccion({
-          resumen: `✗ ${data.resumen.total_errores} error(es) en ${data.columnas.length} columna${data.columnas.length === 1 ? '' : 's'} — no se guardó nada de esta sección.`,
-          columnas: data.columnas,
-        })
-        return
-      }
-      const seccion = seccionesDisponibles(store.camposDestino!.grupos).find((s) => s.orden === ordenGrupo)
-      setPreview({ ordenGrupo, titulo: seccion?.nombre ?? '', detalle: data.detalle })
-    } catch (err) {
-      setErrorSeccion({
-        resumen: err instanceof Error ? err.message : 'Error al validar la sección.',
-        columnas: [],
-      })
-    }
-  }
-
-  async function handleConfirmarPreview() {
-    if (!preview) return
-    try {
-      const data = await importar.mutateAsync(preview.ordenGrupo)
-      if (esError(data)) {
-        setPreview(null)
         setErrorSeccion({
           resumen: `✗ ${data.resumen.total_errores} error(es) en ${data.columnas.length} columna${data.columnas.length === 1 ? '' : 's'} — no se guardó nada de esta sección.`,
           columnas: data.columnas,
@@ -182,17 +167,15 @@ export function EtlUpload() {
         ([m, c]) => `${m}: ${c.creados} nuevo${c.creados === 1 ? '' : 's'}, ${c.reutilizados} reutilizado${c.reutilizados === 1 ? '' : 's'}`
       )
       setResultadoSeccion(`✓ Guardado en base de datos${partes.length ? ' — ' + partes.join(' · ') : ''}`)
-      setPreview(null)
 
       if (!data.completo) {
         const secciones = seccionesDisponibles(store.camposDestino!.grupos)
-        const idx = secciones.findIndex((s) => s.orden === preview.ordenGrupo)
+        const idx = secciones.findIndex((s) => s.orden === ordenGrupo)
         if (idx !== -1 && idx < secciones.length - 1) {
           store.setSeccionIdx(secciones[idx + 1].orden)
         }
       }
     } catch (err) {
-      setPreview(null)
       setErrorSeccion({
         resumen: err instanceof Error ? err.message : 'Error al guardar la sección.',
         columnas: [],
@@ -204,16 +187,19 @@ export function EtlUpload() {
     const ordenGrupo = store.seccionIdx
     const secciones = seccionesDisponibles(store.camposDestino!.grupos)
     const seccionActual = secciones.find((s) => s.orden === ordenGrupo)
-    const confirmado = window.confirm(
-      `¿Confirmas que el archivo no trae datos para "${seccionActual ? seccionActual.nombre : 'esta sección'}"? ` +
-        'No se creará ni actualizará ningún registro y se avanzará a la siguiente sección.'
-    )
-    if (!confirmado) return
+    setConfirmSinDatos({ ordenGrupo, nombreSeccion: seccionActual ? seccionActual.nombre : 'esta sección' })
+  }
+
+  function confirmarSinDatos() {
+    if (!confirmSinDatos) return
+    const { ordenGrupo } = confirmSinDatos
+    const secciones = seccionesDisponibles(store.camposDestino!.grupos)
     store.marcarSeccionGuardada(ordenGrupo)
     setResultadoSeccion('Sección omitida — sin datos en el archivo.')
     const idx = secciones.findIndex((s) => s.orden === ordenGrupo)
     const siguiente = secciones.find((s, i) => i > idx && !seccionBloqueada(s.orden, store.camposDestino!.grupos, store.seccionesGuardadas))
     if (siguiente) store.setSeccionIdx(siguiente.orden)
+    setConfirmSinDatos(null)
   }
 
   const seccionActualInfo = store.camposDestino
@@ -270,7 +256,7 @@ export function EtlUpload() {
   })
 
   return (
-    <div className={`flex-1 p-6 flex flex-col gap-1 mx-auto w-full ${store.step === 2 ? 'max-w-4xl' : 'max-w-3xl'}`}>
+    <div className={`flex-1 p-6 flex flex-col gap-1 mx-auto w-full ${store.step === 4 ? 'max-w-4xl' : 'max-w-3xl'}`}>
       <TourButton onClick={iniciarTour} />
       <div>
         <h1 className="text-xl font-bold text-fg">Cargar fuente de datos</h1>
@@ -289,9 +275,9 @@ export function EtlUpload() {
         )}
       </div>
 
-      {!bloqueada && <Stepper step={store.step} />}
+      {(!bloqueada || modoCorreccion) && <Stepper step={store.step} />}
 
-      {bloqueada && fuenteActual ? (
+      {bloqueada && !modoCorreccion && fuenteActual ? (
         <Card title="Esta fuente ya fue cargada">
           <p className="text-sm text-fg-muted mb-4">
             El mapeo ya se definió y los datos ya se importaron para esta fuente. Para evitar mapeos duplicados o
@@ -311,7 +297,31 @@ export function EtlUpload() {
             >
               🔗 Ver mapeo de columnas
             </Link>
+            <Link
+              to={`/etl/upload?fuente=${fuenteActual.id}&corregir=1`}
+              className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold px-4 py-2 rounded-md transition-colors"
+            >
+              ✏️ Registrar columnas que faltaron
+            </Link>
           </div>
+        </Card>
+      ) : bloqueada && modoCorreccion && fuenteActual && store.step === 1 ? (
+        <Card title="Modo corrección — registrar columnas sin mapear">
+          <p className="text-sm text-fg-muted mb-4">
+            Esta fuente ya está completa. Este modo solo permite completar columnas que quedaron sin mapear en
+            campos de entidades ya guardadas (Sitio, Unidad de Muestreo, Unidad Experimental, etc.) — no vuelve a
+            crear mediciones. Al analizar, se reutiliza el archivo ya registrado y se recupera automáticamente el
+            mapeo anterior; solo falta completar las columnas pendientes.
+          </p>
+          <button
+            type="button"
+            onClick={handleAnalizar}
+            disabled={analizar.isPending}
+            className="bg-brand-teal hover:bg-brand-teal-dark disabled:opacity-60 text-white text-sm font-bold px-4 py-2 rounded-md transition-colors"
+          >
+            {analizar.isPending ? 'Analizando…' : '▶ Continuar con la corrección'}
+          </button>
+          {errorAnalizar && <p className="text-sm text-red-600 dark:text-red-400 mt-3">{errorAnalizar}</p>}
         </Card>
       ) : store.step === 1 ? (
         <Card title="Paso 1 — Analizar fuente">
@@ -389,6 +399,15 @@ export function EtlUpload() {
             </div>
           </div>
         </Card>
+      ) : store.step === 2 ? (
+        <AnalisisEDA
+          onContinuar={() => store.setStep(3)}
+          onVolver={() => store.setStep(1)}
+          onCambiarHoja={handleCambiarHoja}
+          cambiandoHoja={false}
+        />
+      ) : store.step === 3 ? (
+        <ResumenAnalisis onEmpezar={() => store.setStep(4)} onVolver={() => store.setStep(2)} />
       ) : (
         <>
           <p className="text-sm text-fg-muted mb-1">
@@ -402,15 +421,46 @@ export function EtlUpload() {
             {store.sheets.length > 0 && ` · hoja "${store.hojaActiva}"`}
           </p>
 
+          {Object.keys(store.hojas).length > 1 && (
+            <div className="mb-3">
+              <p className="text-xs font-bold text-fg-muted uppercase tracking-wide mb-1.5">
+                Hoja que se está mapeando
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(store.hojas).map(([hoja, snapshot]) => (
+                  <button
+                    key={hoja}
+                    type="button"
+                    onClick={() => handleCambiarHoja(hoja)}
+                    disabled={hoja === store.hojaActiva}
+                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-md border transition-colors ${
+                      hoja === store.hojaActiva
+                        ? 'bg-brand-teal-light dark:bg-brand-teal/10 border-brand-teal text-brand-teal-dark dark:text-brand-teal-bright cursor-default'
+                        : 'bg-surface border-border text-fg-muted hover:text-fg'
+                    }`}
+                  >
+                    {hoja === store.hojaActiva ? '✓ ' : ''}
+                    {hoja} ({snapshot.columnas.length} col.)
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-fg-muted mt-1.5">
+                Cada hoja mantiene su propio mapeo — cambia de pestaña para mapear otra sin perder el avance de esta.
+              </p>
+            </div>
+          )}
+
           <div className="border border-border rounded-xl bg-panel">
             <div data-tour="etlupload-secciones" className="px-4 pt-4">
               <SeccionNav />
             </div>
             <div className="px-4 pt-3">
               {seccionActualInfo && (
-                <p className="text-sm font-bold text-fg mb-2">
-                  {seccionActualInfo.icono} {seccionActualInfo.nombre}
-                </p>
+                <>
+                  <p className="text-sm font-bold text-fg mb-1">
+                    {seccionActualInfo.icono} {seccionActualInfo.nombre}
+                  </p>
+                </>
               )}
             </div>
             <div data-tour="etlupload-mapeo" className="px-4 pb-2">
@@ -422,10 +472,10 @@ export function EtlUpload() {
                   type="button"
                   data-tour="etlupload-guardar"
                   onClick={handleGuardarSeccion}
-                  disabled={previsualizar.isPending || importar.isPending}
+                  disabled={importar.isPending}
                   className="bg-brand-teal hover:bg-brand-teal-dark disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-md transition-colors"
                 >
-                  {previsualizar.isPending ? 'Validando…' : '✅ Validar y guardar esta sección'}
+                  {importar.isPending ? 'Guardando…' : '✅ Validar y guardar esta sección'}
                 </button>
               )}
               {esOpcional && (
@@ -441,19 +491,21 @@ export function EtlUpload() {
               {errorSeccion && (
                 <div className="basis-full border border-red-500 rounded-lg p-3">
                   <p className="text-sm font-semibold text-red-600 dark:text-red-400">{errorSeccion.resumen}</p>
-                  {errorSeccion.columnas.length > 0 && (
+                  {errorSeccion.columnas.some((c) => c.errores?.length) && (
                     <>
                       <ul className="mt-1.5 flex flex-col gap-1">
-                        {errorSeccion.columnas.map((c) => (
-                          <li key={c.columna} className="text-xs text-fg-muted">
-                            <span className="font-semibold text-fg">{c.columna}</span>
-                            {' — '}
-                            {c.errores.length} error{c.errores.length === 1 ? '' : 'es'}
-                            {c.errores[0] && (
-                              <> (ej.: fila {c.errores[0].fila ?? '?'}: {c.errores[0].mensaje || c.errores[0].tipo})</>
-                            )}
-                          </li>
-                        ))}
+                        {errorSeccion.columnas
+                          .filter((c) => c.errores?.length)
+                          .map((c) => (
+                            <li key={c.columna} className="text-xs text-fg-muted">
+                              <span className="font-semibold text-fg">{c.columna}</span>
+                              {' — '}
+                              {c.errores.length} error{c.errores.length === 1 ? '' : 'es'}
+                              {c.errores[0] && (
+                                <> (ej.: fila {c.errores[0].fila ?? '?'}: {c.errores[0].mensaje || c.errores[0].tipo})</>
+                              )}
+                            </li>
+                          ))}
                       </ul>
                       <p className="text-xs text-fg-muted mt-2">
                         Corrige el mapeo de esas columnas — cada una tiene un botón{' '}
@@ -492,30 +544,24 @@ export function EtlUpload() {
             </button>
             <button
               type="button"
-              onClick={() => store.setStep(1)}
+              onClick={() => store.setStep(3)}
               className="bg-surface border border-border text-fg-muted hover:text-fg text-sm font-semibold px-4 py-2 rounded-md transition-colors"
             >
-              ← Volver al paso 1
+              ← Volver al resumen
             </button>
             {avanceGuardadoInfo && <span className="text-xs text-fg-muted">{avanceGuardadoInfo}</span>}
           </div>
         </>
       )}
 
-      {preview && (
-        <PreviewModal
-          open
-          tituloSeccion={preview.titulo}
-          detalle={preview.detalle}
-          ordenModelo={(m) => store.camposDestino?.grupos[m]?.orden_modelo ?? 999}
-          loading={importar.isPending}
-          onConfirmar={handleConfirmarPreview}
-          onCancelar={() => {
-            setPreview(null)
-            setResultadoSeccion('Guardado cancelado tras revisar la vista previa.')
-          }}
-        />
-      )}
+      <ConfirmModal
+        open={Boolean(confirmSinDatos)}
+        titulo="Confirmar sección sin datos"
+        mensaje={`¿Confirmas que el archivo no trae datos para "${confirmSinDatos?.nombreSeccion ?? 'esta sección'}"? No se creará ni actualizará ningún registro y se avanzará a la siguiente sección.`}
+        textoConfirmar="Sí, confirmar"
+        onConfirmar={confirmarSinDatos}
+        onCancelar={() => setConfirmSinDatos(null)}
+      />
     </div>
   )
 }
