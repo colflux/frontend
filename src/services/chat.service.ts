@@ -2,6 +2,24 @@ import type { CargaDocumentoResponse, ChatResponse } from '@/types'
 
 const CHAT_API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8001'
 
+// Ubicación del dispositivo al subir un archivo (solo en páginas https o localhost).
+export interface UbicacionDispositivo {
+  latitud: number
+  longitud: number
+  precision?: number // metros
+}
+
+async function postJson(ruta: string, cuerpo: object, token: string): Promise<CargaDocumentoResponse> {
+  const res = await fetch(`${CHAT_API_BASE}${ruta}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Token ${token}` },
+    body: JSON.stringify(cuerpo),
+  })
+  const datos = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(typeof datos?.detail === 'string' ? datos.detail : `Error del asistente (${res.status}).`)
+  return datos as CargaDocumentoResponse
+}
+
 interface PostChatOptions {
   usuario?: string
   // Token `Authorization: Token <token>` del backend Django — solo hace
@@ -36,16 +54,31 @@ export const chatService = {
   // coincida con la `descripcion` que dio la persona. Si a un archivo de datos
   // le faltan campos obligatorios, responde `pendiente`; se reenvía con las
   // respuestas en `complementos`. Los errores traen el mensaje listo para mostrar.
+  // Primer paso de la subida: el asistente revisa que lo descrito tenga que ver con COLFLUX.
+  postDescripcion: (descripcion: string, token: string) =>
+    postJson('/documentos/descripcion', { descripcion }, token),
+
+  // Segundo paso: el asistente interpreta y verifica de dónde es el archivo.
+  postLugar: (lugar: string, token: string) => postJson('/documentos/lugar', { lugar }, token),
+
   postDocumento: async (
     archivo: File,
     token: string,
     descripcion: string,
-    complementos: string[] = []
+    complementos: string[] = [],
+    lugar = '',
+    dispositivo: UbicacionDispositivo | null = null
   ): Promise<CargaDocumentoResponse> => {
     const datos = new FormData()
     datos.append('archivo', archivo)
     datos.append('descripcion', descripcion)
+    datos.append('lugar', lugar)
     if (complementos.length) datos.append('complementos', complementos.join('\n'))
+    if (dispositivo) {
+      datos.append('latitud', String(dispositivo.latitud))
+      datos.append('longitud', String(dispositivo.longitud))
+      if (dispositivo.precision != null) datos.append('precision', String(dispositivo.precision))
+    }
     const res = await fetch(`${CHAT_API_BASE}/documentos`, {
       method: 'POST',
       headers: { Authorization: `Token ${token}` },
