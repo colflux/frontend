@@ -44,7 +44,7 @@ export function useChat() {
   const usuario = useAuthStore((s) => s.usuario)
   // Con sesión, el asistente recibe quién escribe y su token; sin sesión, cada
   // pestaña tiene su propio identificador para no compartir historial.
-  const anonimo = useRef(`anonimo-${crypto.randomUUID()}`)
+  const anonimo = useRef(`anonimo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`)
   const mutation = useMutation({
     mutationFn: (message: string) =>
       chatService.postChat(message, {
