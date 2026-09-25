@@ -26,9 +26,19 @@ function YoutubeIcon() {
   )
 }
 
+function TelegramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M21 4L3 11l6.5 2.5L18 8l-6.5 6.5L17 20l4-16z" />
+    </svg>
+  )
+}
+
 const REDES = [
   { label: 'Instagram', href: 'https://www.instagram.com/col_flux/', Icon: InstagramIcon },
   { label: 'YouTube', href: 'https://www.youtube.com/@Colflux', Icon: YoutubeIcon },
+  // Bot del asistente de COLFLUX: responde lo mismo que el chat de la plataforma.
+  { label: 'Telegram', href: 'https://t.me/COLFLUXBOT', Icon: TelegramIcon },
 ]
 
 export function Footer() {
