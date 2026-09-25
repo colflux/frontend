@@ -2,7 +2,15 @@ import { Card } from '@/components/common/Card'
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
 import { DESCRIPCION_SECCION, seccionesReales } from '@/utils/etlMapeo'
 
-const SECCIONES_OPCIONALES = ['Sitio', 'Clima']
+const SECCIONES_OPCIONALES = [
+  'Sitio',
+  'Clima',
+  'Cobertura y Vegetación',
+  'Carbono Orgánico del Suelo (COS)',
+  'Biomasa',
+  'Materia Orgánica Muerta (MOM)',
+  'Muestras GEI',
+]
 
 interface Props {
   onEmpezar: () => void

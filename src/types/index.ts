@@ -32,6 +32,9 @@ export interface SerieLectura {
   valor: number
   unidad: string
   gas: string
+  condicion_luz: string | null
+  analizador_id: number | null
+  analizador: string | null
   sitio_id: number
   sitio_nombre: string
   departamento_id: number | null
@@ -418,6 +421,7 @@ export interface ColumnaOrigen {
 
 export interface MapeoColumnaPrevio {
   columna_origen: string
+  hoja_origen?: string | null
   modelo_destino: string | null
   campo_destino: string | null
   transformacion: string
@@ -550,6 +554,16 @@ export interface AtributoManual {
   valor: string
 }
 
+// Un atributo de esta sección mapeado desde una columna que vive en OTRA
+// hoja del mismo archivo (no la hoja activa) — el valor se resuelve
+// cruzando filas por una clave común (ver _CLAVES_JOIN_HOJAS en el backend).
+export interface AtributoCruzado {
+  modelo: string
+  campo: string
+  hojaOrigen: string
+  columnaOrigen: string
+}
+
 // Un segundo (o tercer) destino para la misma columna origen del destino
 // principal (p. ej. "ID" completo → UnidadMuestreo.nombre, y una parte
 // extraída por regex → UnidadExperimental.nombre).
@@ -575,6 +589,7 @@ export interface VerificarExistenciaResponse {
 
 export interface MapeoColumnaPayload {
   columna_origen: string
+  hoja_origen?: string
   modelo_destino: string
   campo_destino: string
   transformacion: string
@@ -647,6 +662,16 @@ export interface ImportarSeccionResponse {
   hasta_grupo: number
   completo: boolean
   modelos: Record<string, ResumenModeloImportado>
+}
+
+export type ProgresoImportacionEstado = 'idle' | 'en_progreso' | 'completado' | 'error'
+
+export interface EstadoImportacionResponse {
+  estado: ProgresoImportacionEstado
+  actual: number
+  total: number
+  mensaje: string
+  resultado?: ImportarSeccionResponse | ValidacionSeccionError | { error: string }
 }
 
 // ── mapeo de columnas (/api/fuentes-datos/{id}/carga/{id}/mapeo/) ───

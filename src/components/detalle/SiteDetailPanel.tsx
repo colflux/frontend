@@ -9,7 +9,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { metodologiaToCategoria } from '@/utils/geoFilters'
 import { CATEGORIA_LABELS } from '@/utils/formatters'
 import { ENTIDAD_MAP } from '@/utils/catalogoModel'
-import { EmissionTrendChart } from '@/components/charts/EmissionTrendChart'
+import { FlujosGraficasPanel } from '@/components/charts/FlujosGraficasPanel'
 import { BiomasaProduccionScatter } from '@/components/charts/BiomasaProduccionScatter'
 import { CosProfundidadChart } from '@/components/charts/CosProfundidadChart'
 import type { SitioFeature, VistaDatos } from '@/types'
@@ -240,7 +240,7 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
       {activeSection === 'graficas' && (
         <div className="overflow-auto px-4 py-4">
           <p className="text-xs text-fg-muted font-semibold uppercase tracking-wider mb-2">{CATEGORIA_LABELS[categoria]}</p>
-          {categoria === 'flujos' && <EmissionTrendChart sitioId={sitioId} />}
+          {categoria === 'flujos' && <FlujosGraficasPanel sitioId={sitioId} proyectoId={proyectoId} />}
           {categoria === 'biomasa' && <BiomasaProduccionScatter sitioId={sitioId} />}
           {categoria === 'cos' && <CosProfundidadChart sitioId={sitioId} />}
         </div>

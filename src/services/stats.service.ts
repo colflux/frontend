@@ -1,4 +1,4 @@
-const API_ROOT = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api').replace(/\/api\/?$/, '')
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api'
 
 export interface HomeStats {
   sitios: number
@@ -9,7 +9,7 @@ export interface HomeStats {
 
 export const statsService = {
   getHomeStats: async (): Promise<HomeStats> => {
-    const res = await fetch(`${API_ROOT}/chart-data/`)
+    const res = await fetch(`${API_BASE}/chart-data/`)
     if (!res.ok) throw new Error(`API error ${res.status}: chart-data`)
     const data = await res.json()
     return {

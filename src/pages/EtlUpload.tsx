@@ -11,12 +11,20 @@ import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import { useFuentesDropdown } from '@/hooks/useFuentesDropdown'
 import { useAnalizarFuente } from '@/hooks/useAnalizarFuente'
 import { useGuardarAvance } from '@/hooks/useGuardarAvance'
-import { useImportarSeccion, esError } from '@/hooks/useSeccionMutations'
+import { useImportarSeccion, useVaciarMapeoHoja, esError } from '@/hooks/useSeccionMutations'
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
 import { seccionesDisponibles, seccionBloqueada, SIN_MAPEAR_ORDEN } from '@/utils/etlMapeo'
 import type { ColumnaConErrores, FuenteDatos } from '@/types'
 
-const SECCIONES_OPCIONALES = ['Sitio', 'Clima']
+const SECCIONES_OPCIONALES = [
+  'Sitio',
+  'Clima',
+  'Cobertura y Vegetación',
+  'Carbono Orgánico del Suelo (COS)',
+  'Biomasa',
+  'Materia Orgánica Muerta (MOM)',
+  'Muestras GEI',
+]
 
 function Stepper({ step }: { step: 1 | 2 | 3 | 4 }) {
   const pasos = [
@@ -126,11 +134,19 @@ export function EtlUpload() {
   // ── Paso 2: guardar avance / guardar sección ─────────────────────────────
   const guardarAvance = useGuardarAvance()
   const importar = useImportarSeccion()
+  const vaciarMapeoHoja = useVaciarMapeoHoja()
 
   const [avanceGuardadoInfo, setAvanceGuardadoInfo] = useState('')
   const [errorSeccion, setErrorSeccion] = useState<{ resumen: string; columnas: ColumnaConErrores[] } | null>(null)
   const [resultadoSeccion, setResultadoSeccion] = useState('')
   const [confirmSinDatos, setConfirmSinDatos] = useState<{ ordenGrupo: number; nombreSeccion: string } | null>(null)
+  const [confirmVaciarHoja, setConfirmVaciarHoja] = useState<string | null>(null)
+
+  async function confirmarVaciarHoja() {
+    if (!confirmVaciarHoja) return
+    await vaciarMapeoHoja.mutateAsync(confirmVaciarHoja)
+    setConfirmVaciarHoja(null)
+  }
 
   async function handleGuardarAvance() {
     setErrorSeccion(null)
@@ -462,6 +478,58 @@ export function EtlUpload() {
                   </p>
                 </>
               )}
+              {seccionActualInfo?.nombre === 'Muestras GEI' &&
+                (() => {
+                  // "Muestras GEI" es una sola sección de destino (MuestraGEI +
+                  // SubmuestraGEI), pero el archivo suele traer CO2 y CH4 en
+                  // hojas separadas -mismo criterio que _HOJAS_EXPORT en el
+                  // backend-. Este sub-selector solo cambia la hoja activa
+                  // (cada una guarda su propio avance, ver `hojas` en el
+                  // store); "Validar y guardar" sigue siendo uno solo para
+                  // toda la sección, multi-hoja.
+                  const hojasGas = Object.keys(store.hojas).filter((h) => /co2|ch4/i.test(h))
+                  if (hojasGas.length < 2) return null
+                  return (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {hojasGas.map((h) => {
+                        const snap = store.hojas[h]
+                        const mapeados = Object.values(snap.mapeoSeleccion).filter((m) => m.modelo).length
+                        const activa = store.hojaActiva === h
+                        const gas = /co2/i.test(h) ? 'CO2' : 'CH4'
+                        return (
+                          <span key={h} className="inline-flex items-stretch">
+                            <button
+                              type="button"
+                              onClick={() => handleCambiarHoja(h)}
+                              disabled={activa}
+                              className={`text-xs font-semibold px-2.5 py-1.5 rounded-md border transition-colors ${
+                                activa
+                                  ? 'bg-brand-teal-light dark:bg-brand-teal/10 border-brand-teal text-brand-teal-dark dark:text-brand-teal-bright cursor-default rounded-r-none'
+                                  : 'bg-surface border-border text-fg-muted hover:text-fg'
+                              } ${mapeados ? 'rounded-r-none border-r-0' : ''}`}
+                            >
+                              {activa ? '✓ ' : ''}🫧 {gas} · {mapeados} mapeado{mapeados === 1 ? '' : 's'}
+                            </button>
+                            {mapeados > 0 && (
+                              <button
+                                type="button"
+                                title={`No tengo datos de ${gas} en este archivo — borra el mapeo parcial de la hoja "${h}" para no bloquear el resto de la sección.`}
+                                onClick={() => setConfirmVaciarHoja(h)}
+                                className={`text-xs px-1.5 rounded-r-md border transition-colors ${
+                                  activa
+                                    ? 'bg-brand-teal-light dark:bg-brand-teal/10 border-brand-teal text-brand-teal-dark dark:text-brand-teal-bright'
+                                    : 'bg-surface border-border text-fg-muted hover:text-red-600'
+                                }`}
+                              >
+                                🚫
+                              </button>
+                            )}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
             </div>
             <div data-tour="etlupload-mapeo" className="px-4 pb-2">
               <MapeoList />
@@ -477,6 +545,22 @@ export function EtlUpload() {
                 >
                   {importar.isPending ? 'Guardando…' : '✅ Validar y guardar esta sección'}
                 </button>
+              )}
+              {importar.isPending && store.progresoImportacion && (
+                <div className="flex items-center gap-2 min-w-[220px]">
+                  <div className="flex-1 h-1.5 bg-surface rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-brand-teal transition-all"
+                      style={{
+                        width:
+                          store.progresoImportacion.total > 0
+                            ? `${Math.min(100, (store.progresoImportacion.actual / store.progresoImportacion.total) * 100)}%`
+                            : '15%',
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-fg-muted whitespace-nowrap">{store.progresoImportacion.mensaje}</span>
+                </div>
               )}
               {esOpcional && (
                 <button
@@ -561,6 +645,15 @@ export function EtlUpload() {
         textoConfirmar="Sí, confirmar"
         onConfirmar={confirmarSinDatos}
         onCancelar={() => setConfirmSinDatos(null)}
+      />
+
+      <ConfirmModal
+        open={Boolean(confirmVaciarHoja)}
+        titulo="Vaciar mapeo de esta hoja"
+        mensaje={`¿Confirmas que quieres borrar TODO el mapeo guardado de la hoja "${confirmVaciarHoja}"? Se pierde el avance de mapeo de esa hoja en esta carga — útil si se mapeó por error con esa pestaña activa. No afecta a las demás hojas.`}
+        textoConfirmar="Sí, vaciar"
+        onConfirmar={confirmarVaciarHoja}
+        onCancelar={() => setConfirmVaciarHoja(null)}
       />
     </div>
   )

@@ -71,10 +71,16 @@ export function MapeoList() {
   }
 
   function renderGrupoEntidad(modelo: string, items: ItemGrupo[]) {
-    const extras = items.filter((i): i is { kind: 'extra'; extraIdx: number } => i.kind === 'extra')
     const grupoInfo = grupoDeModelo(modelo)
     const color = colorDeModelo(modelo)
     const camposModelo = (camposDestino!.modelos[modelo] ?? []).filter((c) => !c.automatico)
+    const nombresCampoModelo = new Set(camposModelo.map((c) => c.nombre))
+    // Los extras cuyo campo ya es un atributo real del modelo se muestran
+    // dentro de su propio AtributoRow (ver esViaExtra ahí) — acá solo quedan
+    // los extras "sueltos" (campo que no está en el catálogo del modelo).
+    const extras = items
+      .filter((i): i is { kind: 'extra'; extraIdx: number } => i.kind === 'extra')
+      .filter((i) => !nombresCampoModelo.has(extrasDestino[i.extraIdx]?.campo))
     // Los campos de camposModelo ya tienen su propio selector "escribir manual" inline
     // en AtributoRow — solo se listan aquí los atributos manuales para campos que no
     // están en esa lista (p. ej. campos automáticos, agregados vía "Agregar atributo").
@@ -84,7 +90,8 @@ export function MapeoList() {
     const mapeadosCount = camposModelo.filter(
       (c) =>
         columnasMapeadasA(modelo, c.nombre, mapeoSeleccion).length > 0 ||
-        atributosManuales.some((a) => a.modelo === modelo && a.campo === c.nombre && a.valor)
+        atributosManuales.some((a) => a.modelo === modelo && a.campo === c.nombre && a.valor) ||
+        extrasDestino.some((e) => e.modelo === modelo && e.campo === c.nombre)
     ).length
     const transectoDesvinculado = modelo === 'Transecto' && !tipoUnidadEsTransecto
     const partes: string[] = [

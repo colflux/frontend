@@ -6,14 +6,7 @@ import { useOnboardingTour } from '@/hooks/useOnboardingTour'
 import { EcosistemasMap } from '@/components/home/EcosistemasMap'
 import { LoginModal } from '@/components/layout/LoginModal'
 import { TourButton } from '@/components/common/TourButton'
-import ciencias from '@/assets/aliados/ciencias.png'
-import javeriana from '@/assets/aliados/javeriana.png'
-import rosario from '@/assets/aliados/rosario.png'
-import uniNarino from '@/assets/aliados/uni-narino.png'
-import jardinBotanico from '@/assets/aliados/jardin-botanico-alcaldia.png'
-import ideam from '@/assets/aliados/ideam.png'
-import cda from '@/assets/aliados/cda.png'
-import corredorJaguar from '@/assets/aliados/corredor-jaguar.png'
+import aliadosLogos from '@/assets/aliados/PataLOGOS.png'
 import sobreProyecto from '@/assets/Chorrera.jpeg'
 import monitoreoImg from '@/assets/ecosistemas/paramo-1.jpg'
 import comunidadesImg from '@/assets/ecosistemas/paramo-2.jpg'
@@ -44,17 +37,6 @@ const EXPLORA = [
     to: 'https://colflux.github.io/context/faq/',
     img: faqImg,
   },
-]
-
-const ALIADOS = [
-  { name: 'Ciencias', src: ciencias },
-  { name: 'Pontificia Universidad Javeriana', src: javeriana },
-  { name: 'Universidad del Rosario', src: rosario },
-  { name: 'Universidad de Nariño', src: uniNarino },
-  { name: 'Alcaldía Mayor de Bogotá / Jardín Botánico', src: jardinBotanico },
-  { name: 'IDEAM', src: ideam },
-  { name: 'CDA', src: cda },
-  { name: 'Corporación Corredor del Jaguar', src: corredorJaguar },
 ]
 
 export function Home() {
@@ -246,16 +228,12 @@ export function Home() {
           Aliados
         </p>
         <div className="mt-6 dark:bg-white dark:rounded-2xl dark:py-8 dark:px-6">
-          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
-            {ALIADOS.map((aliado) => (
-              <img
-                key={aliado.name}
-                src={aliado.src}
-                alt={aliado.name}
-                title={aliado.name}
-                className="h-12 w-auto object-contain grayscale-0"
-              />
-            ))}
+          <div className="flex items-center justify-center">
+            <img
+              src={aliadosLogos}
+              alt="Logos de aliados de COLFLUX"
+              className="max-w-full h-auto object-contain"
+            />
           </div>
         </div>
       </section>

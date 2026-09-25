@@ -18,19 +18,28 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
   const {
     fuenteId,
     columnas,
+    hojaActiva,
+    hojas,
     mapeoSeleccion,
     atributosManuales,
+    atributosCruzados,
+    extrasDestino,
     camposDestino,
     ultimosErroresPorColumna,
     setTipoCoberturaColumna,
     setAplicarRegexColumna,
     setRegexPatronColumna,
     reasignarOrigenAtributo,
+    asignarExtraDestino,
+    quitarExtraDestinoDeCampo,
+    actualizarExtraDestino,
     activarAtributoManualDeCampo,
     quitarAtributoManualDeCampo,
     actualizarAtributoManual,
+    setAtributoCruzado,
   } = useEtlUploadStore()
   const tiposCobertura = camposDestino?.tipos_cobertura ?? []
+  const hayVariasHojas = Object.keys(hojas).length > 1
 
   const [abierto, setAbierto] = useState(false)
   const [revisionAbierta, setRevisionAbierta] = useState(false)
@@ -45,28 +54,66 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idxsKey, modelo, campoMeta.nombre])
 
-  const activo = colIdxsMapeados[0] ?? null
+  // Si este campo no tiene mapeo principal propio, puede estar resuelto vía
+  // un "destino extra" que reusa la columna que otro campo ya mapeó como
+  // principal (ver ExtraDestino) — p. ej. Sitio.nombre reusando la misma
+  // columna que UnidadMuestreo.nombre, sin pisarle su mapeo.
+  const extraIdx = extrasDestino.findIndex((e) => e.modelo === modelo && e.campo === campoMeta.nombre)
+  const extraAttr = extraIdx !== -1 ? extrasDestino[extraIdx] : null
+  const esViaExtra = colIdxsMapeados.length === 0 && extraAttr != null
+
+  const activo = colIdxsMapeados[0] ?? extraAttr?.colIdx ?? null
   const col = activo != null ? columnas[activo] : null
-  const seleccion = activo != null ? mapeoSeleccion[activo] : undefined
+  const seleccion = esViaExtra
+    ? {
+        modelo,
+        campo: campoMeta.nombre,
+        aplicarRegex: extraAttr?.aplicarRegex,
+        regexPatron: extraAttr?.regexPatron,
+        tipoCobertura: extraAttr?.tipoCobertura,
+      }
+    : activo != null
+      ? mapeoSeleccion[activo]
+      : undefined
   const muestraCompleta = (col?.muestra ?? []).slice(0, 5)
 
   const manualIdx = atributosManuales.findIndex((a) => a.modelo === modelo && a.campo === campoMeta.nombre)
   const manualActivo = manualIdx !== -1
   const manualAttr = manualActivo ? atributosManuales[manualIdx] : null
   const tieneManual = Boolean(manualAttr?.valor)
-  const cubierto = activo != null || tieneManual
+
+  const cruzadoIdx = atributosCruzados.findIndex((a) => a.modelo === modelo && a.campo === campoMeta.nombre)
+  const cruzadoActivo = cruzadoIdx !== -1
+  const cruzadoAttr = cruzadoActivo ? atributosCruzados[cruzadoIdx] : null
+  const columnaCruzada = cruzadoAttr
+    ? hojas[cruzadoAttr.hojaOrigen]?.columnas.find((c) => c.nombre === cruzadoAttr.columnaOrigen)
+    : null
+
+  const [hojaSeleccionada, setHojaSeleccionada] = useState(cruzadoAttr?.hojaOrigen || hojaActiva)
+  useEffect(() => {
+    setHojaSeleccionada(cruzadoAttr?.hojaOrigen || hojaActiva)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hojaActiva, cruzadoAttr?.hojaOrigen])
+  const enOtraHoja = hojaSeleccionada !== hojaActiva
+  const columnasHojaSeleccionada = enOtraHoja ? hojas[hojaSeleccionada]?.columnas ?? [] : columnas
+
+  const cubierto = activo != null || tieneManual || cruzadoActivo
 
   const mostrarTipoCobertura = modelo === 'Cobertura' && campoMeta.nombre === 'nombre'
   const fkChoices = useFkChoices(modelo, campoMeta.nombre, fuenteId, campoMeta.es_fk)
   const choicesEfectivos = campoMeta.es_fk ? fkChoices.data?.choices ?? [] : campoMeta.choices ?? []
+  // Choices y manejo de nulos se guardan por columna (mapeoValores/mapeoSeleccion),
+  // no por destino — un campo resuelto vía destino extra siempre se guarda
+  // "directo" (ver construirMapeos), así que no se ofrecen acá para no sugerir
+  // una edición que no se va a persistir.
   const mostrarChoices = Boolean(
-    activo != null && choicesEfectivos.length > 0 && (col?.valores_unicos?.length ?? 0) > 0
+    !esViaExtra && activo != null && choicesEfectivos.length > 0 && (col?.valores_unicos?.length ?? 0) > 0
   )
   const esCompleja =
-    activo != null && col
+    !esViaExtra && activo != null && col
       ? columnaEsCompleja(activo, col, mapeoSeleccion, ultimosErroresPorColumna, campoMeta.requerido)
       : false
-  const tieneNulosOpcionales = Boolean(!esCompleja && activo != null && col?.nulls)
+  const tieneNulosOpcionales = Boolean(!esViaExtra && !esCompleja && activo != null && col?.nulls)
   const mostrarPreviewIdentidad = activo != null && !mostrarChoices && !seleccion?.aplicarRegex
 
   const partesRevisar: string[] = []
@@ -83,7 +130,11 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
   function toggleRegex() {
     if (activo == null) return
     const activar = !seleccion?.aplicarRegex
-    setAplicarRegexColumna(activo, activar)
+    if (esViaExtra) {
+      actualizarExtraDestino(extraIdx, { aplicarRegex: activar })
+    } else {
+      setAplicarRegexColumna(activo, activar)
+    }
     setSugerenciaRegexMsg('')
     if (activar && !seleccion?.regexPatron && fuenteId != null) {
       regexSugerido.mutate(
@@ -91,7 +142,11 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
         {
           onSuccess: (data) => {
             if (!data.regex_patron) return
-            setRegexPatronColumna(activo, data.regex_patron)
+            if (esViaExtra) {
+              actualizarExtraDestino(extraIdx, { regexPatron: data.regex_patron })
+            } else {
+              setRegexPatronColumna(activo, data.regex_patron)
+            }
             setSugerenciaRegexMsg(
               `💡 Sugerido a partir de "${data.columna_origen}" en la fuente "${data.fuente_nombre}" — puedes editarlo.`
             )
@@ -101,11 +156,35 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
     }
   }
 
+  function cambiarHojaSeleccionada(nuevaHoja: string) {
+    setHojaSeleccionada(nuevaHoja)
+    if (nuevaHoja === hojaActiva) {
+      if (cruzadoActivo) setAtributoCruzado(modelo, campoMeta.nombre, '', '')
+      return
+    }
+    if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+    if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
+    if (manualActivo) quitarAtributoManualDeCampo(modelo, campoMeta.nombre)
+    // Sin columna todavía: se completa cuando el usuario elija una en el
+    // select de "atributo en fuente de datos", ya filtrado a esta hoja.
+    setAtributoCruzado(modelo, campoMeta.nombre, '', '')
+  }
+
+  // Otros campos destino que ya usan esta columna — como mapeo principal o
+  // como destino extra. Se listan (no se bloquean): elegir esta misma
+  // columna para otro campo la agrega como destino adicional, no la roba.
   function otroDestinoDe(idx: number): string | null {
+    const destinos: string[] = []
     const s = mapeoSeleccion[idx]
-    if (!s?.modelo || !s?.campo) return null
-    if (s.modelo === modelo && s.campo === campoMeta.nombre) return null
-    return `${s.modelo}.${s.campo}`
+    if (s?.modelo && s?.campo && !(s.modelo === modelo && s.campo === campoMeta.nombre)) {
+      destinos.push(`${s.modelo}.${s.campo}`)
+    }
+    extrasDestino.forEach((e) => {
+      if (e.colIdx === idx && e.modelo && e.campo && !(e.modelo === modelo && e.campo === campoMeta.nombre)) {
+        destinos.push(`${e.modelo}.${e.campo}`)
+      }
+    })
+    return destinos.length ? destinos.join(', ') : null
   }
 
   return (
@@ -153,33 +232,94 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
               <p className="text-[10px] font-bold text-fg-muted uppercase tracking-wide mb-1.5">
                 Atributo en fuente de datos
               </p>
+              {hayVariasHojas && (
+                <select
+                  value={hojaSeleccionada}
+                  onChange={(e) => cambiarHojaSeleccionada(e.target.value)}
+                  className="w-full bg-panel border border-border text-fg text-xs rounded-md px-2 py-1.5 mb-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal"
+                >
+                  {Object.keys(hojas).map((h) => (
+                    <option key={h} value={h}>
+                      {h === hojaActiva ? `${h} (esta hoja)` : `columna viene de: ${h}`}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
-                value={manualActivo ? '__manual__' : activo ?? ''}
+                value={enOtraHoja ? cruzadoAttr?.columnaOrigen ?? '' : manualActivo ? '__manual__' : activo ?? ''}
                 onChange={(e) => {
                   const v = e.target.value
+                  if (enOtraHoja) {
+                    if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+                    if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
+                    if (manualActivo) quitarAtributoManualDeCampo(modelo, campoMeta.nombre)
+                    setAtributoCruzado(modelo, campoMeta.nombre, hojaSeleccionada, v)
+                    return
+                  }
                   if (v === '__manual__') {
-                    if (activo != null) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+                    if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+                    if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
                     activarAtributoManualDeCampo(modelo, campoMeta.nombre)
                     return
                   }
                   if (manualActivo) quitarAtributoManualDeCampo(modelo, campoMeta.nombre)
-                  reasignarOrigenAtributo(modelo, campoMeta.nombre, v === '' ? null : Number(v), colIdxsMapeados)
+                  if (v === '') {
+                    if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+                    if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
+                    return
+                  }
+                  const nuevoIdx = Number(v)
+                  // ¿Esa columna ya es el destino PRINCIPAL de otro campo? Entonces
+                  // no se la quitamos: este campo la reusa como destino extra.
+                  const yaEsPrincipalDeOtro = Boolean(
+                    mapeoSeleccion[nuevoIdx]?.modelo &&
+                      mapeoSeleccion[nuevoIdx]?.campo &&
+                      !(mapeoSeleccion[nuevoIdx].modelo === modelo && mapeoSeleccion[nuevoIdx].campo === campoMeta.nombre)
+                  )
+                  if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+                  if (yaEsPrincipalDeOtro) {
+                    asignarExtraDestino(nuevoIdx, modelo, campoMeta.nombre)
+                    return
+                  }
+                  if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
+                  reasignarOrigenAtributo(modelo, campoMeta.nombre, nuevoIdx, colIdxsMapeados)
                 }}
                 className="w-full bg-panel border border-border text-fg text-sm font-semibold rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal"
               >
                 <option value="">— ninguna columna —</option>
-                <option value="__manual__">✏️ escribir manual</option>
-                {columnas.map((c, i) => {
-                  const otro = otroDestinoDe(i)
-                  return (
-                    <option key={i} value={i}>
-                      {c.nombre}
-                      {otro ? ` — ya en ${otro}` : ''}
-                    </option>
-                  )
-                })}
+                {!enOtraHoja && <option value="__manual__">✏️ escribir manual</option>}
+                {enOtraHoja
+                  ? columnasHojaSeleccionada.map((c) => (
+                      <option key={c.nombre} value={c.nombre}>
+                        {c.nombre}
+                      </option>
+                    ))
+                  : columnas.map((c, i) => {
+                      const otro = otroDestinoDe(i)
+                      return (
+                        <option key={i} value={i}>
+                          {c.nombre}
+                          {otro ? ` — también en ${otro}` : ''}
+                        </option>
+                      )
+                    })}
               </select>
-              {manualActivo ? (
+              {enOtraHoja ? (
+                cruzadoAttr?.columnaOrigen && (
+                  <div className="text-xs text-fg-muted mt-1.5">
+                    <p className="text-[10px] font-bold text-brand-teal-dark dark:text-brand-teal-bright">
+                      🔗 cruzando con hoja "{cruzadoAttr.hojaOrigen}"
+                    </p>
+                    {columnaCruzada && (
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        {(columnaCruzada.muestra ?? []).slice(0, 3).map((v, i) => (
+                          <span key={i} className="font-mono">"{v}"</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              ) : manualActivo ? (
                 <div className="mt-1.5">
                   {campoMeta.es_fk && fkChoices.isLoading ? (
                     <span className="text-xs italic text-fg-muted">Cargando opciones…</span>
@@ -236,7 +376,18 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
             <div className="flex-1 min-w-0 bg-surface border border-border rounded-lg p-3">
               <p className="text-[10px] font-bold text-fg-muted uppercase tracking-wide mb-1.5">Vista previa</p>
 
-              {manualActivo ? (
+              {cruzadoActivo ? (
+                <p className="text-xs text-fg-muted">
+                  {cruzadoAttr?.columnaOrigen ? (
+                    <>
+                      Valor de <span className="font-mono text-fg">"{cruzadoAttr.columnaOrigen}"</span> en la hoja{' '}
+                      <span className="font-mono text-fg">"{cruzadoAttr.hojaOrigen}"</span>, cruzado por fila.
+                    </>
+                  ) : (
+                    'Elige una columna de la otra hoja.'
+                  )}
+                </p>
+              ) : manualActivo ? (
                 <p className="text-xs text-fg-muted">
                   {manualAttr?.valor ? (
                     <>
@@ -255,7 +406,11 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
                     {mostrarTipoCobertura && (
                       <select
                         value={seleccion?.tipoCobertura ? String(seleccion.tipoCobertura) : ''}
-                        onChange={(e) => setTipoCoberturaColumna(activo, e.target.value ? Number(e.target.value) : null)}
+                        onChange={(e) => {
+                          const val = e.target.value ? Number(e.target.value) : null
+                          if (esViaExtra) actualizarExtraDestino(extraIdx, { tipoCobertura: val })
+                          else setTipoCoberturaColumna(activo, val)
+                        }}
                         className="bg-panel border border-border text-fg text-xs rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal"
                       >
                         <option value="">— sistema de clasificación —</option>
@@ -282,7 +437,10 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
                         type="text"
                         placeholder={String.raw`^SWAMP_CO2_(.+?)_\d+$`}
                         value={seleccion.regexPatron || ''}
-                        onChange={(e) => setRegexPatronColumna(activo, e.target.value)}
+                        onChange={(e) => {
+                          if (esViaExtra) actualizarExtraDestino(extraIdx, { regexPatron: e.target.value })
+                          else setRegexPatronColumna(activo, e.target.value)
+                        }}
                         className="min-w-[220px] max-w-full font-mono text-xs bg-panel border border-border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal"
                       />
                       {sugerenciaRegexMsg && <p className="text-xs text-fg-muted">{sugerenciaRegexMsg}</p>}

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type {
+  AtributoCruzado,
   AtributoManual,
   CamposDestinoResponse,
   ColumnaConErrores,
@@ -9,6 +10,7 @@ import type {
   HojaAnalizada,
   MapeoColumnaPrevio,
   MapeoSeleccion,
+  ProgresoImportacionEstado,
 } from '@/types'
 import {
   SIN_MAPEAR_ORDEN,
@@ -30,6 +32,7 @@ interface HojaSnapshot {
   mapeoValores: Record<number, Record<string, string>>
   atributosManuales: AtributoManual[]
   extrasDestino: ExtraDestino[]
+  atributosCruzados: AtributoCruzado[]
 }
 
 const hojaSnapshotVacia: HojaSnapshot = {
@@ -39,6 +42,7 @@ const hojaSnapshotVacia: HojaSnapshot = {
   mapeoValores: {},
   atributosManuales: [],
   extrasDestino: [],
+  atributosCruzados: [],
 }
 
 interface EtlUploadStore {
@@ -56,6 +60,7 @@ interface EtlUploadStore {
   mapeoValores: Record<number, Record<string, string>>
   atributosManuales: AtributoManual[]
   extrasDestino: ExtraDestino[]
+  atributosCruzados: AtributoCruzado[]
   ultimosErroresPorColumna: Record<string, ColumnaConErrores['errores']>
   seccionIdx: number
   seccionesGuardadas: Set<number>
@@ -92,13 +97,32 @@ interface EtlUploadStore {
   quitarAtributoManual: (i: number) => void
   activarAtributoManualDeCampo: (modelo: string, campo: string) => void
   quitarAtributoManualDeCampo: (modelo: string, campo: string) => void
+  // Mapea un atributo de esta sección desde una columna de OTRA hoja
+  // (distinta a hojaActiva) — cruzando filas por una clave común en el
+  // backend. `columnaOrigen` vacío quita el mapeo cruzado de ese campo.
+  setAtributoCruzado: (modelo: string, campo: string, hojaOrigen: string, columnaOrigen: string) => void
   agregarExtraDestino: (colIdx: number) => void
+  // Reusa `colIdx` (ya mapeado como destino principal de OTRO campo) como
+  // destino adicional de `modelo.campo` — sin tocar el mapeo principal que
+  // ya tenía esa columna. Ver ExtraDestino.
+  asignarExtraDestino: (colIdx: number, modelo: string, campo: string) => void
   actualizarExtraDestino: (extraIdx: number, patch: Partial<ExtraDestino>) => void
   quitarExtraDestino: (extraIdx: number) => void
+  quitarExtraDestinoDeCampo: (modelo: string, campo: string) => void
   setUltimosErroresPorColumna: (columnas: ColumnaConErrores[]) => void
   setSeccionIdx: (orden: number) => void
   marcarSeccionGuardada: (orden: number) => void
+  // Limpia en el estado local el mapeo de una hoja completa -se usa después
+  // de vaciarlo en el backend (ver useVaciarMapeoHoja), para cuando se
+  // mapeó por error con la pestaña de hoja equivocada activa-.
+  vaciarMapeoHojaLocal: (hoja: string) => void
   setStep: (step: 1 | 2 | 3 | 4) => void
+  // Avance del guardado en background (ver useSeccionMutations) para
+  // mostrar una barra de progreso real en vez de un "Guardando…" fijo.
+  progresoImportacion: { estado: ProgresoImportacionEstado; actual: number; total: number; mensaje: string } | null
+  setProgresoImportacion: (
+    p: { estado: ProgresoImportacionEstado; actual: number; total: number; mensaje: string } | null
+  ) => void
   reset: () => void
 }
 
@@ -117,9 +141,16 @@ const initialState = {
   mapeoValores: {} as Record<number, Record<string, string>>,
   atributosManuales: [] as AtributoManual[],
   extrasDestino: [] as ExtraDestino[],
+  atributosCruzados: [] as AtributoCruzado[],
   ultimosErroresPorColumna: {} as Record<string, ColumnaConErrores['errores']>,
   seccionIdx: SIN_MAPEAR_ORDEN,
   seccionesGuardadas: new Set<number>(),
+  progresoImportacion: null as {
+    estado: ProgresoImportacionEstado
+    actual: number
+    total: number
+    mensaje: string
+  } | null,
 }
 
 // Recupera en `mapeoSeleccion`/`mapeoValores`/`atributosManuales`/
@@ -133,14 +164,27 @@ function aplicarMapeosGuardados(
   mapeoValores: Record<number, Record<string, string>>
   atributosManuales: AtributoManual[]
   extrasDestino: ExtraDestino[]
+  atributosCruzados: AtributoCruzado[]
 } {
   const atributosManuales: AtributoManual[] = mapeosPrevios
     .filter((m) => m.transformacion === 'constante')
     .map((m) => ({ modelo: m.modelo_destino || '', campo: m.campo_destino || '', valor: m.valor_constante || '' }))
 
+  // Mapeos cruzados (hoja_origen seteado): la columna vive en OTRA hoja, así
+  // que no se puede recuperar por índice en `columnas` (las de ESTA hoja) —
+  // se guardan aparte, igual que los manuales.
+  const atributosCruzados: AtributoCruzado[] = mapeosPrevios
+    .filter((m) => m.transformacion !== 'constante' && m.hoja_origen)
+    .map((m) => ({
+      modelo: m.modelo_destino || '',
+      campo: m.campo_destino || '',
+      hojaOrigen: m.hoja_origen || '',
+      columnaOrigen: m.columna_origen,
+    }))
+
   const porNombre = new Map<string, MapeoColumnaPrevio[]>()
   mapeosPrevios
-    .filter((m) => m.transformacion !== 'constante')
+    .filter((m) => m.transformacion !== 'constante' && !m.hoja_origen)
     .forEach((m) => {
       const lista = porNombre.get(m.columna_origen) ?? []
       lista.push(m)
@@ -181,7 +225,7 @@ function aplicarMapeosGuardados(
     }
   })
 
-  return { mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino }
+  return { mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino, atributosCruzados }
 }
 
 function aplicarSugerenciasMapeo(
@@ -212,11 +256,12 @@ function construirSnapshotHoja(
     mapeoValores: valoresRecuperados,
     atributosManuales,
     extrasDestino,
+    atributosCruzados,
   } = aplicarMapeosGuardados(columnas, mapeosPrevios)
   const mapeoSeleccion = aplicarSugerenciasMapeo(columnas, recuperado, camposDestino.modelos)
   const mapeoValoresChoices = aplicarSugerenciasValores(columnas, mapeoSeleccion, valoresRecuperados, camposDestino.modelos)
   const mapeoValores = aplicarSugerenciasHora(columnas, mapeoValoresChoices)
-  return { columnas, totalFilas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino }
+  return { columnas, totalFilas, mapeoSeleccion, mapeoValores, atributosManuales, extrasDestino, atributosCruzados }
 }
 
 export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
@@ -243,6 +288,7 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
       mapeoValores: activa.mapeoValores,
       atributosManuales: activa.atributosManuales,
       extrasDestino: activa.extrasDestino,
+      atributosCruzados: activa.atributosCruzados,
       edaResultado: analisis.eda,
       camposDestino,
       ultimosErroresPorColumna: {},
@@ -260,6 +306,7 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
         mapeoValores: s.mapeoValores,
         atributosManuales: s.atributosManuales,
         extrasDestino: s.extrasDestino,
+        atributosCruzados: s.atributosCruzados,
       }
       const hojas = { ...s.hojas, [s.hojaActiva]: snapshotActual }
       const siguiente = hojas[hoja] ?? hojaSnapshotVacia
@@ -272,6 +319,7 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
         mapeoValores: siguiente.mapeoValores,
         atributosManuales: siguiente.atributosManuales,
         extrasDestino: siguiente.extrasDestino,
+        atributosCruzados: siguiente.atributosCruzados,
       }
     }),
   setModeloColumna: (idx, modelo) =>
@@ -363,11 +411,24 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
     set((s) => ({
       atributosManuales: s.atributosManuales.filter((a) => !(a.modelo === modelo && a.campo === campo)),
     })),
+  setAtributoCruzado: (modelo, campo, hojaOrigen, columnaOrigen) =>
+    set((s) => {
+      const sinAnterior = s.atributosCruzados.filter((a) => !(a.modelo === modelo && a.campo === campo))
+      if (!columnaOrigen) return { atributosCruzados: sinAnterior }
+      return { atributosCruzados: [...sinAnterior, { modelo, campo, hojaOrigen, columnaOrigen }] }
+    }),
   agregarExtraDestino: (colIdx) =>
     set((s) => ({
       extrasDestino: [
         ...s.extrasDestino,
         { colIdx, modelo: '', campo: '', aplicarRegex: false, regexPatron: '', tipoCobertura: null },
+      ],
+    })),
+  asignarExtraDestino: (colIdx, modelo, campo) =>
+    set((s) => ({
+      extrasDestino: [
+        ...s.extrasDestino.filter((e) => !(e.modelo === modelo && e.campo === campo)),
+        { colIdx, modelo, campo, aplicarRegex: false, regexPatron: '', tipoCobertura: null },
       ],
     })),
   actualizarExtraDestino: (extraIdx, patch) =>
@@ -376,6 +437,10 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
     })),
   quitarExtraDestino: (extraIdx) =>
     set((s) => ({ extrasDestino: s.extrasDestino.filter((_, i) => i !== extraIdx) })),
+  quitarExtraDestinoDeCampo: (modelo, campo) =>
+    set((s) => ({
+      extrasDestino: s.extrasDestino.filter((e) => !(e.modelo === modelo && e.campo === campo)),
+    })),
   setUltimosErroresPorColumna: (columnas) =>
     set((s) => {
       const nuevo = { ...s.ultimosErroresPorColumna }
@@ -387,6 +452,25 @@ export const useEtlUploadStore = create<EtlUploadStore>((set) => ({
   setSeccionIdx: (orden) => set({ seccionIdx: orden }),
   marcarSeccionGuardada: (orden) =>
     set((s) => ({ seccionesGuardadas: new Set(s.seccionesGuardadas).add(orden) })),
+  vaciarMapeoHojaLocal: (hoja) =>
+    set((s) => {
+      const vacia: HojaSnapshot = {
+        ...hojaSnapshotVacia,
+        columnas: s.hojas[hoja]?.columnas ?? [],
+        totalFilas: s.hojas[hoja]?.totalFilas ?? 0,
+      }
+      const hojas = { ...s.hojas, [hoja]: vacia }
+      if (hoja !== s.hojaActiva) return { hojas }
+      return {
+        hojas,
+        mapeoSeleccion: vacia.mapeoSeleccion,
+        mapeoValores: vacia.mapeoValores,
+        atributosManuales: vacia.atributosManuales,
+        extrasDestino: vacia.extrasDestino,
+        atributosCruzados: vacia.atributosCruzados,
+      }
+    }),
   setStep: (step) => set({ step }),
+  setProgresoImportacion: (p) => set({ progresoImportacion: p }),
   reset: () => set({ ...initialState, seccionesGuardadas: new Set() }),
 }))
