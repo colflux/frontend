@@ -3,13 +3,15 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { useMomTendencia } from '@/hooks/useMomTendencia'
 import { useThemeStore } from '@/store/useThemeStore'
 import type { Agrupacion } from '@/types'
+import { CargandoGrafica, TarjetaGrafica } from '@/components/charts/TarjetaGrafica'
 
 const AGRUPACIONES: { valor: Agrupacion; etiqueta: string }[] = [
   { valor: 'mes', etiqueta: 'Mes' },
   { valor: 'anio', etiqueta: 'Año' },
 ]
 
-export function MomHojarascaChart() {
+/** Sin datos no se muestra (ni su tarjeta, si tiene título). */
+export function MomHojarascaChart({ titulo }: { titulo?: string } = {}) {
   const [agrupar, setAgrupar] = useState<Agrupacion>('mes')
   const { data, isLoading } = useMomTendencia(agrupar)
   const isDark = useThemeStore((s) => s.theme === 'dark')
@@ -22,21 +24,16 @@ export function MomHojarascaChart() {
 
   if (isLoading) {
     return (
-      <div className="h-36 flex items-center justify-center text-fg-subtle text-sm">
-        Cargando…
-      </div>
+      <TarjetaGrafica titulo={titulo}>
+        <CargandoGrafica />
+      </TarjetaGrafica>
     )
   }
 
-  if (!chartData.length) {
-    return (
-      <div className="h-36 flex items-center justify-center text-fg-subtle text-sm">
-        Sin datos
-      </div>
-    )
-  }
+  if (!chartData.length) return null
 
   return (
+    <TarjetaGrafica titulo={titulo}>
     <div className="flex flex-col gap-2">
       <div className="flex gap-1 justify-end">
         {AGRUPACIONES.map((a) => (
@@ -70,5 +67,6 @@ export function MomHojarascaChart() {
         </LineChart>
       </ResponsiveContainer>
     </div>
+    </TarjetaGrafica>
   )
 }

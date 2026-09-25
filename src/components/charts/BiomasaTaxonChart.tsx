@@ -2,8 +2,10 @@ import { BarChart, Bar, LabelList, XAxis, YAxis, Tooltip, ResponsiveContainer } 
 import { useBiomasaPorTaxon } from '@/hooks/useBiomasaPorTaxon'
 import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
+import { CargandoGrafica, TarjetaGrafica } from '@/components/charts/TarjetaGrafica'
 
-export function BiomasaTaxonChart() {
+/** Sin datos no se muestra (ni su tarjeta, si tiene título). */
+export function BiomasaTaxonChart({ titulo }: { titulo?: string } = {}) {
   // El "Agrupar por" (Familia/Género/Especie) vive en el panel de filtros
   // (recuadro de Biomasa) en vez de un toggle local, para que quede visible
   // junto al resto de filtros de la metodología.
@@ -22,21 +24,16 @@ export function BiomasaTaxonChart() {
 
   if (isLoading) {
     return (
-      <div className="h-48 flex items-center justify-center text-fg-subtle text-sm">
-        Cargando…
-      </div>
+      <TarjetaGrafica titulo={titulo}>
+        <CargandoGrafica />
+      </TarjetaGrafica>
     )
   }
 
-  if (!chartData.length) {
-    return (
-      <div className="h-48 flex items-center justify-center text-fg-subtle text-sm">
-        Sin datos
-      </div>
-    )
-  }
+  if (!chartData.length) return null
 
   return (
+    <TarjetaGrafica titulo={titulo}>
     <div className="flex flex-col gap-2">
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={chartData} margin={{ top: 20, right: 4, left: -24, bottom: 40 }}>
@@ -63,5 +60,6 @@ export function BiomasaTaxonChart() {
         </BarChart>
       </ResponsiveContainer>
     </div>
+    </TarjetaGrafica>
   )
 }

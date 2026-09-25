@@ -1,13 +1,14 @@
-import { useMemo } from 'react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { useMemo, useState } from 'react'
 import { Card } from '@/components/common/Card'
 import { TourButton } from '@/components/common/TourButton'
 import { FilterPanel } from '@/features/filters/FilterPanel'
 import { useOnboardingTour } from '@/hooks/useOnboardingTour'
-import { EmissionBarChart } from '@/components/charts/EmissionBarChart'
-import { EmissionTrendChart } from '@/components/charts/EmissionTrendChart'
-import { CategoricalChart, DonutCenterOverlay } from '@/components/charts/CategoricalChart'
-import { InstalacionTrendChart } from '@/components/charts/InstalacionTrendChart'
+import { BarrasHorizontalesChart } from '@/components/charts/BarrasHorizontalesChart'
+import { BoxplotTendenciaChart } from '@/components/charts/BoxplotTendenciaChart'
+import { CategoricalChart } from '@/components/charts/CategoricalChart'
+import { DonaChart } from '@/components/charts/DonaChart'
+import { MuestreosPorPeriodoChart } from '@/components/charts/MuestreosPorPeriodoChart'
+import { SelectorGrafica } from '@/components/charts/TarjetaGrafica'
 import { BiomasaTaxonChart } from '@/components/charts/BiomasaTaxonChart'
 import { BiomasaProduccionScatter } from '@/components/charts/BiomasaProduccionScatter'
 import { CosProfundidadChart } from '@/components/charts/CosProfundidadChart'
@@ -17,9 +18,8 @@ import { useSeries } from '@/hooks/useSeries'
 import { useResumenGeo } from '@/hooks/useResumenGeo'
 import { useFlujosFiltros } from '@/hooks/useGlobalFilters'
 import { useAppStore } from '@/store/useAppStore'
-import { useThemeStore } from '@/store/useThemeStore'
-import { PIE_COLORS } from '@/utils/formatters'
-import type { GeoResumenFilters } from '@/types'
+import { GAS_CORTO, formatUnidad } from '@/utils/formatters'
+import type { GeoResumenFilters, SitioFeature } from '@/types'
 
 const TOTAL_DEPARTAMENTOS_COLOMBIA = 33
 
@@ -30,6 +30,23 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
       {subtitle && <p className="text-xs text-fg-muted mt-0.5">{subtitle}</p>}
     </div>
   )
+}
+
+/** Un sitio cuenta como monitoreado si tiene alguna medición: de gases, biomasa o COS. */
+function tieneDatos(sitio: SitioFeature): boolean {
+  const p = sitio.properties
+  return Object.keys(p.resumen_por_gas ?? {}).length > 0 || p.resumen_biomasa != null || p.resumen_cos != null
+}
+
+/** Cuántos sitios hay por cada valor de `clave` (un sitio puede contar en varios). */
+function contarSitios(sitios: SitioFeature[], clave: (s: SitioFeature) => (string | null)[]) {
+  const conteo = new Map<string, number>()
+  for (const s of sitios) {
+    for (const nombre of new Set(clave(s).filter((n): n is string => !!n))) {
+      conteo.set(nombre, (conteo.get(nombre) ?? 0) + 1)
+    }
+  }
+  return [...conteo.entries()].map(([nombre, valor]) => ({ nombre, valor }))
 }
 
 export function DashboardIndicadores() {
@@ -43,57 +60,67 @@ export function DashboardIndicadores() {
     return f
   }, [flujosFiltros])
   const { data: sitios, isLoading: sitiosLoading } = useSitios(sitiosFiltros)
-  // "Muestras registradas" es un total transversal a todos los gases,
-  // independiente del selector "Gas" del panel -de ahí el override-.
-  const { data: series, isLoading: seriesLoading } = useSeries({ gas: undefined })
+  // Mediciones del gas elegido en el panel de filtros: el total de muestras,
+  // las unidades disponibles y las gráficas de tendencia salen de aquí.
+  const { data: series, isLoading: seriesLoading } = useSeries()
   const { data: departamentosData } = useResumenGeo('departamento', flujosFiltros)
-  const isDark = useThemeStore((s) => s.theme === 'dark')
+  const gas = useAppStore((s) => s.filters.gas)
+  // La metodología elegida en el panel decide qué secciones se ven: «General»
+  // muestra todas; Flujos, Biomasa o COS, solo las suyas.
+  const metodologia = useAppStore((s) => s.metodologia)
+  const ver = {
+    flujos: metodologia === 'general' || metodologia === 'flujos',
+    biomasa: metodologia === 'general' || metodologia === 'biomasa',
+    cos: metodologia === 'general' || metodologia === 'cos',
+    mom: metodologia === 'general',
+  }
   const flujosAnalizadorId = useAppStore((s) => s.flujosAnalizadorId)
   const setFlujosAnalizadorId = useAppStore((s) => s.setFlujosAnalizadorId)
   const flujosCondicionLuzId = useAppStore((s) => s.flujosCondicionLuzId)
   const setFlujosCondicionLuzId = useAppStore((s) => s.setFlujosCondicionLuzId)
 
-  // dimension="proyecto"/"analizador"/"condicion_luz" no se auto-filtran por
-  // su propio valor -colapsarían el gráfico a una sola barra-; selectedId ya
-  // resalta la selección visualmente.
+  // dimension="analizador"/"condicion_luz" no se auto-filtran por su propio
+  // valor -colapsarían el gráfico a una sola barra-; selectedId ya resalta la
+  // selección visualmente.
   const filtrosSinAnalizador = useMemo(() => {
     const f = { ...flujosFiltros }
     delete f.analizador
     return f
   }, [flujosFiltros])
-  const filtrosSinCondicionLuz = useMemo(() => {
-    const f = { ...flujosFiltros }
+
+  // El promedio por condición de luz se calcula dentro de una sola unidad.
+  const unidades = useMemo(
+    () => [...new Set((series?.resultados ?? []).map((r) => r.unidad))].filter(Boolean).sort(),
+    [series]
+  )
+  const [unidadElegida, setUnidadElegida] = useState('')
+  const unidadLuz = unidades.includes(unidadElegida) ? unidadElegida : (unidades[0] ?? '')
+  const filtrosLuz = useMemo(() => {
+    const f: GeoResumenFilters = { ...flujosFiltros, unidad: unidadLuz || undefined }
     delete f.condicion_luz
     return f
-  }, [flujosFiltros])
+  }, [flujosFiltros, unidadLuz])
 
-  const usoDistribucion = useMemo(() => {
-    const counts = new Map<string, number>()
-    sitios?.features.forEach((f) => {
-      const key = f.properties.uso_actual || 'Sin especificar'
-      counts.set(key, (counts.get(key) ?? 0) + 1)
-    })
-    return [...counts.entries()]
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-  }, [sitios])
+  const sitiosConDatos = useMemo(() => (sitios?.features ?? []).filter(tieneDatos), [sitios])
+  const sitiosPorUnidadExperimental = useMemo(
+    () => contarSitios(sitiosConDatos, (s) => s.properties.unidades_muestreo.map((um) => um.unidad_experimental)),
+    [sitiosConDatos]
+  )
+  // Estado de conservación: sobre todos los sitios registrados, porque es un
+  // atributo del lugar y no depende de que ya tenga mediciones.
+  const sitiosPorEstado = useMemo(
+    () => contarSitios(sitios?.features ?? [], (s) => [s.properties.estado_conservacion]),
+    [sitios]
+  )
 
   const departamentosConDatos = departamentosData?.features.length ?? 0
   const coberturaPct = Math.round((departamentosConDatos / TOTAL_DEPARTAMENTOS_COLOMBIA) * 100)
-  const coberturaData = [
-    { name: 'Con datos', value: departamentosConDatos },
-    { name: 'Sin datos', value: Math.max(TOTAL_DEPARTAMENTOS_COLOMBIA - departamentosConDatos, 0) },
-  ]
-
-  const sitiosActivos = sitios?.features.length ?? 0
   const totalMuestras = series?.count ?? 0
   const proyectosActivos = useMemo(() => {
     const ids = new Set<number>()
-    sitios?.features.forEach((f) => f.properties.proyectos.forEach((p) => ids.add(p.id)))
+    sitiosConDatos.forEach((f) => f.properties.proyectos.forEach((p) => ids.add(p.id)))
     return ids.size
-  }, [sitios])
-
-  const tickColor = isDark ? '#94a3b8' : '#64748b'
+  }, [sitiosConDatos])
 
   const { start: iniciarTour } = useOnboardingTour({
     tourId: 'dashboard',
@@ -102,28 +129,28 @@ export function DashboardIndicadores() {
         element: '[data-tour="dashboard-stats"]',
         popover: {
           title: 'Indicadores generales',
-          description: 'Muestras, sitios, proyectos y cobertura del territorio, agregados en tiempo real.',
+          description: 'Muestras del gas elegido, sitios con mediciones, proyectos y cobertura del territorio.',
         },
       },
       {
         element: '[data-tour="dashboard-comparativas"]',
         popover: {
-          title: 'Distribución de sitios',
-          description: 'Cómo se usan los sitios monitoreados y qué porcentaje del territorio ya tiene datos.',
+          title: 'Unidades experimentales y tendencia',
+          description: 'Muestras y sitios por unidad experimental, y cómo se distribuyen las mediciones en el tiempo.',
         },
       },
       {
         element: '[data-tour="dashboard-general"]',
         popover: {
           title: 'Sección General',
-          description: 'Todo el carbono medido, desglosado por región, ecosistema y estado de conservación.',
+          description: 'Muestras por región y ecosistema, estado de conservación de los sitios y muestreos por periodo.',
         },
       },
       {
         element: '[data-tour="dashboard-flujos"]',
         popover: {
           title: 'Flujos de GEI',
-          description: 'CO₂, CH₄ y N₂O por analizador y condición de luz (día/noche).',
+          description: 'Muestras por analizador y flujo promedio de día y de noche, en una unidad a la vez.',
         },
       },
     ],
@@ -147,15 +174,20 @@ export function DashboardIndicadores() {
         </p>
       </div>
 
-      <div data-tour="dashboard-stats" className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div
+        data-tour="dashboard-stats"
+        className={`grid grid-cols-2 gap-4 ${ver.flujos ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}
+      >
+        {ver.flujos && (
+          <Card>
+            <p className="text-2xl font-bold text-fg">
+              {seriesLoading ? '…' : totalMuestras.toLocaleString('es-CO')}
+            </p>
+            <p className="text-xs text-fg-muted mt-1">Muestras de {GAS_CORTO[gas] ?? gas}</p>
+          </Card>
+        )}
         <Card>
-          <p className="text-2xl font-bold text-fg">
-            {seriesLoading ? '…' : totalMuestras.toLocaleString('es-CO')}
-          </p>
-          <p className="text-xs text-fg-muted mt-1">Muestras registradas</p>
-        </Card>
-        <Card>
-          <p className="text-2xl font-bold text-fg">{sitiosLoading ? '…' : sitiosActivos}</p>
+          <p className="text-2xl font-bold text-fg">{sitiosLoading ? '…' : sitiosConDatos.length}</p>
           <p className="text-xs text-fg-muted mt-1">Sitios monitoreados</p>
         </Card>
         <Card>
@@ -168,146 +200,119 @@ export function DashboardIndicadores() {
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Muestras por proyecto">
-          <EmissionBarChart />
-        </Card>
-        <Card title="Tendencia de mediciones">
-          <EmissionTrendChart />
-        </Card>
-      </div>
+      {ver.flujos && (
+      <section data-tour="dashboard-comparativas" className="seccion-graficas grid md:grid-cols-2 gap-4">
+        <CategoricalChart
+          titulo="Muestras por unidad experimental"
+          dimension="unidad_experimental"
+          tipo="barras"
+          filters={flujosFiltros}
+        />
+        <BarrasHorizontalesChart
+          titulo="Sitios por unidad experimental"
+          datos={sitiosPorUnidadExperimental}
+          isLoading={sitiosLoading}
+          total={sitiosConDatos.length}
+          unidad={['sitio', 'sitios']}
+        />
+        <BoxplotTendenciaChart titulo="Tendencia de mediciones" className="md:col-span-2" />
+      </section>
+      )}
 
-      <div data-tour="dashboard-comparativas" className="grid md:grid-cols-2 gap-4">
-        <Card title="Distribución por uso del sitio">
-          {usoDistribucion.length ? (
-            <div className="relative">
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={usoDistribucion} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80}>
-                    {usoDistribucion.map((entry, i) => (
-                      <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend wrapperStyle={{ fontSize: 11, color: tickColor }} />
-                  <Tooltip
-                    contentStyle={{
-                      background: isDark ? '#1e293b' : '#ffffff',
-                      border: `1px solid ${isDark ? '#334155' : '#e2e8e4'}`,
-                      borderRadius: 6,
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <DonutCenterOverlay total={sitiosActivos} subtitulo="Sitios" isDark={isDark} paddingBottomPx={28} />
-            </div>
-          ) : (
-            <div className="h-[220px] flex items-center justify-center text-fg-subtle text-sm">
-              Sin datos
-            </div>
-          )}
-        </Card>
-
-        <Card title="Cobertura de datos">
-          <div className="relative">
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={coberturaData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80}>
-                <Cell fill="#198A77" />
-                <Cell fill={isDark ? '#334155' : '#e2e8e4'} />
-              </Pie>
-              <Legend wrapperStyle={{ fontSize: 11, color: tickColor }} />
-              <Tooltip
-                contentStyle={{
-                  background: isDark ? '#1e293b' : '#ffffff',
-                  border: `1px solid ${isDark ? '#334155' : '#e2e8e4'}`,
-                  borderRadius: 6,
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <DonutCenterOverlay total={coberturaPct} subtitulo="% cobertura" isDark={isDark} paddingBottomPx={28} />
-          </div>
-          <p className="text-xs text-fg-muted text-center mt-1">
-            {departamentosConDatos} de {TOTAL_DEPARTAMENTOS_COLOMBIA} departamentos con datos
-          </p>
-        </Card>
-      </div>
-
-      <SectionHeader
-        title="General"
-        subtitle="Todo el carbono medido, por región, ecosistema y estado de conservación."
-      />
-      <div data-tour="dashboard-general" className="grid md:grid-cols-2 gap-4">
-        <Card title="Muestras por región">
-          <CategoricalChart dimension="region" tipo="torta" filters={flujosFiltros} />
-        </Card>
-        <Card title="Muestras por ecosistema / cobertura">
-          <CategoricalChart dimension="ecosistema" tipo="barras" filters={flujosFiltros} />
-        </Card>
-        <Card title="% de participación por estado de conservación">
-          <CategoricalChart dimension="estado_conservacion" tipo="torta" filters={flujosFiltros} />
-        </Card>
-        <Card title="Instalación de unidades de muestreo">
-          <InstalacionTrendChart />
-        </Card>
-      </div>
-
-      <SectionHeader
-        title="Flujos de GEI"
-        subtitle="CO₂ / CH₄ / N₂O, en la unidad reportada por cada muestra."
-      />
-      <div data-tour="dashboard-flujos" className="grid md:grid-cols-2 gap-4">
-        <Card title="Flujo por analizador">
+      {ver.flujos && (
+      <section className="seccion-graficas flex flex-col gap-4">
+        <SectionHeader
+          title="General"
+          subtitle="Todo el carbono medido, por región, ecosistema y estado de conservación."
+        />
+        <div data-tour="dashboard-general" className="grid md:grid-cols-2 gap-4">
+          <CategoricalChart titulo="Muestras por región" dimension="region" tipo="torta" filters={flujosFiltros} />
           <CategoricalChart
+            titulo="Muestras por ecosistema / cobertura"
+            dimension="ecosistema"
+            tipo="barras"
+            filters={flujosFiltros}
+          />
+          <DonaChart
+            titulo="% de participación por estado de conservación"
+            datos={sitiosPorEstado}
+            isLoading={sitiosLoading}
+            subtitulo="Sitios"
+            porcentajes
+          />
+          <MuestreosPorPeriodoChart />
+        </div>
+      </section>
+      )}
+
+      {ver.flujos && (
+      <section className="seccion-graficas flex flex-col gap-4">
+        <SectionHeader
+          title="Flujos de GEI"
+          subtitle="CO₂ / CH₄ / N₂O. Los promedios se calculan dentro de una misma unidad."
+        />
+        <div data-tour="dashboard-flujos" className="grid md:grid-cols-2 gap-4">
+          <CategoricalChart
+            titulo="Muestras por analizador"
             dimension="analizador"
             tipo="barras"
-            metrica="promedio"
             filters={filtrosSinAnalizador}
             selectedId={flujosAnalizadorId}
             onSelect={(id) => setFlujosAnalizadorId(id === flujosAnalizadorId ? null : id)}
           />
-        </Card>
-        <Card title="Flujo por condición de luz (día/noche)">
           <CategoricalChart
+            titulo="Flujo promedio por condición de luz (día/noche)"
             dimension="condicion_luz"
             tipo="barras"
             metrica="promedio"
-            filters={filtrosSinCondicionLuz}
+            unidad={unidadLuz}
+            filters={filtrosLuz}
             selectedId={flujosCondicionLuzId}
             onSelect={(id) => setFlujosCondicionLuzId(id === flujosCondicionLuzId ? null : id)}
+            controles={
+              unidades.length > 1 ? (
+                <SelectorGrafica
+                  opciones={unidades.map((u) => ({ valor: u, etiqueta: formatUnidad(u) }))}
+                  valor={unidadLuz}
+                  onChange={setUnidadElegida}
+                />
+              ) : undefined
+            }
           />
-        </Card>
-      </div>
+        </div>
+      </section>
+      )}
 
-      <SectionHeader
-        title="Biomasa"
-        subtitle="Individuos arbóreos por taxón y producción de biomasa aérea por parcela."
-      />
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Individuos por taxón">
-          <BiomasaTaxonChart />
-        </Card>
-        <Card title="Producción de biomasa">
-          <BiomasaProduccionScatter />
-        </Card>
-      </div>
+      {ver.biomasa && (
+      <section className="seccion-graficas flex flex-col gap-4">
+        <SectionHeader
+          title="Biomasa"
+          subtitle="Individuos arbóreos por taxón y producción de biomasa aérea por parcela."
+        />
+        <div className="grid md:grid-cols-2 gap-4">
+          <BiomasaTaxonChart titulo="Individuos por taxón" />
+          <BiomasaProduccionScatter titulo="Producción de biomasa" />
+        </div>
+      </section>
+      )}
 
-      <SectionHeader title="Carbono orgánico del suelo (COS)" />
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card title="% de carbono por rango de profundidad">
-          <CosProfundidadChart />
-        </Card>
-      </div>
+      {ver.cos && (
+      <section className="seccion-graficas flex flex-col gap-4">
+        <SectionHeader title="Carbono orgánico del suelo (COS)" />
+        <div className="grid md:grid-cols-2 gap-4">
+          <CosProfundidadChart titulo="% de carbono por rango de profundidad" />
+        </div>
+      </section>
+      )}
 
-      <SectionHeader
-        title="Materia orgánica muerta (MOM)"
-        subtitle="Carbono en hojarasca."
-      />
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Carbono en hojarasca (g/m²)">
-          <MomHojarascaChart />
-        </Card>
-      </div>
+      {ver.mom && (
+      <section className="seccion-graficas flex flex-col gap-4">
+        <SectionHeader title="Materia orgánica muerta (MOM)" subtitle="Carbono en hojarasca." />
+        <div className="grid md:grid-cols-2 gap-4">
+          <MomHojarascaChart titulo="Carbono en hojarasca (g/m²)" />
+        </div>
+      </section>
+      )}
       </div>
     </div>
   )

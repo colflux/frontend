@@ -103,6 +103,7 @@ export interface SitioProperties {
   departamento: string | null
   altitud: number | null
   uso_actual: string | null
+  estado_conservacion: string | null
   proyectos: SitioProyecto[]
   unidades_muestreo: SitioUnidadMuestreo[]
   total_muestras_co2: number
@@ -225,6 +226,9 @@ export interface GeoResumenFilters {
   // tienen estos campos en el backend-.
   analizador?: number | string
   condicion_luz?: string
+  // Código de la unidad (umol_m2_s, g_m2_h…): los promedios de flujos solo
+  // tienen sentido dentro de una misma unidad.
+  unidad?: string
 }
 
 // Filtros de /api/geo/sitios/: los mismos que GeoResumenFilters salvo
@@ -236,6 +240,7 @@ export type SitiosFilters = Omit<GeoResumenFilters, 'categoria'>
 
 export type DimensionCategorica =
   | 'proyecto'
+  | 'unidad_experimental'
   | 'ecosistema'
   | 'estado_conservacion'
   | 'analizador'
@@ -259,19 +264,8 @@ export interface ResumenCategoricoResponse {
 
 export type ResumenCategoricoFilters = GeoResumenFilters
 
-// ── tendencia de instalación de unidades de muestreo (/api/geo/tendencia-instalacion/) ─
-
+// Agrupación temporal de las gráficas con selector Mes/Año.
 export type Agrupacion = 'mes' | 'anio'
-
-export interface TendenciaInstalacionPunto {
-  periodo: string
-  total: number
-}
-
-export interface TendenciaInstalacionResponse {
-  agrupar: Agrupacion
-  resultados: TendenciaInstalacionPunto[]
-}
 
 // ── filtros compartidos de los reportes de biomasa/cos/mom/instalación
 // (no tienen gas/analizador/condicion_luz -esos campos solo existen en

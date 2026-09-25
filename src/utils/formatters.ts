@@ -29,6 +29,13 @@ export const GAS_LABELS: Record<string, string> = {
   N2O: 'N₂O — Óxido nitroso (próximamente)',
 }
 
+// Fórmula corta de cada gas, para títulos y etiquetas.
+export const GAS_CORTO: Record<string, string> = {
+  CO2: 'CO₂',
+  CH4: 'CH₄',
+  N2O: 'N₂O',
+}
+
 export const UNIDAD_LABELS: Record<string, string> = {
   g_m2_h: 'g/m²/h',
   umol_m2_s: 'µmol/m²/s',

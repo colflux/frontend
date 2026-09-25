@@ -1,12 +1,15 @@
 import { ScatterChart, Scatter, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useBiomasaProduccion } from '@/hooks/useBiomasaProduccion'
 import { useThemeStore } from '@/store/useThemeStore'
+import { CargandoGrafica, TarjetaGrafica } from '@/components/charts/TarjetaGrafica'
 
 interface Props {
   sitioId?: number
+  /** Título de la tarjeta; sin datos no se muestra ni la tarjeta. */
+  titulo?: string
 }
 
-export function BiomasaProduccionScatter({ sitioId }: Props = {}) {
+export function BiomasaProduccionScatter({ sitioId, titulo }: Props = {}) {
   const { data, isLoading } = useBiomasaProduccion(sitioId != null ? { sitio: sitioId } : {})
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const tickColor = isDark ? '#94a3b8' : '#64748b'
@@ -21,21 +24,16 @@ export function BiomasaProduccionScatter({ sitioId }: Props = {}) {
 
   if (isLoading) {
     return (
-      <div className="h-48 flex items-center justify-center text-fg-subtle text-sm">
-        Cargando…
-      </div>
+      <TarjetaGrafica titulo={titulo}>
+        <CargandoGrafica />
+      </TarjetaGrafica>
     )
   }
 
-  if (!chartData.length) {
-    return (
-      <div className="h-48 flex items-center justify-center text-fg-subtle text-sm">
-        Sin datos
-      </div>
-    )
-  }
+  if (!chartData.length) return null
 
   return (
+    <TarjetaGrafica titulo={titulo}>
     <ResponsiveContainer width="100%" height={220}>
       <ScatterChart margin={{ top: 4, right: 16, left: -8, bottom: 0 }}>
         <XAxis
@@ -61,5 +59,6 @@ export function BiomasaProduccionScatter({ sitioId }: Props = {}) {
         <Scatter data={chartData} fill="#198A77" opacity={0.7} />
       </ScatterChart>
     </ResponsiveContainer>
+    </TarjetaGrafica>
   )
 }

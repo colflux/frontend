@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import {
   PieChart,
   Pie,
@@ -10,11 +11,13 @@ import {
   LabelList,
   XAxis,
   YAxis,
+  ReferenceLine,
 } from 'recharts'
+import { CargandoGrafica, TarjetaGrafica } from '@/components/charts/TarjetaGrafica'
 import { useResumenCategorico } from '@/hooks/useResumenCategorico'
 import { useResumenGeo } from '@/hooks/useResumenGeo'
 import { useThemeStore } from '@/store/useThemeStore'
-import { PIE_COLORS } from '@/utils/formatters'
+import { PIE_COLORS, formatUnidad } from '@/utils/formatters'
 import type { DimensionCategorica, ResumenCategoricoFilters } from '@/types'
 
 interface ItemNormalizado {
@@ -35,7 +38,17 @@ interface CategoricalChartProps {
   onSelect?: (id: number | string) => void
   selectedId?: number | string | null
   alturaPx?: number
+  /** Título de la tarjeta. Si la gráfica no tiene datos, no se muestra ni la tarjeta. */
+  titulo?: string
+  className?: string
+  /** Unidad de los valores cuando metrica="promedio" (va en el eje y en el tooltip). */
+  unidad?: string
+  /** Controles sobre la gráfica (p. ej. selector de unidad). */
+  controles?: ReactNode
 }
+
+// Con más categorías que esto, las etiquetas del eje x se inclinan para que quepan.
+const MAX_ETIQUETAS_RECTAS = 4
 
 export function CategoricalChart({
   dimension,
@@ -45,6 +58,10 @@ export function CategoricalChart({
   onSelect,
   selectedId,
   alturaPx = 220,
+  titulo,
+  className,
+  unidad,
+  controles,
 }: CategoricalChartProps) {
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const tickColor = isDark ? '#94a3b8' : '#64748b'
@@ -76,25 +93,14 @@ export function CategoricalChart({
 
   if (isLoading) {
     return (
-      <div
-        className="flex items-center justify-center text-fg-subtle text-sm"
-        style={{ height: alturaPx }}
-      >
-        Cargando…
-      </div>
+      <TarjetaGrafica titulo={titulo} className={className}>
+        <CargandoGrafica alturaPx={alturaPx} />
+      </TarjetaGrafica>
     )
   }
 
-  if (!chartData.length) {
-    return (
-      <div
-        className="flex items-center justify-center text-fg-subtle text-sm"
-        style={{ height: alturaPx }}
-      >
-        Sin datos
-      </div>
-    )
-  }
+  // Sin datos no se muestra la gráfica (ni su tarjeta).
+  if (!chartData.length) return null
 
   const tooltipStyle = {
     contentStyle: {
@@ -108,6 +114,8 @@ export function CategoricalChart({
   if (tipo === 'torta') {
     const total = chartData.reduce((sum, d) => sum + d.valor, 0)
     return (
+      <TarjetaGrafica titulo={titulo} className={className}>
+      {controles}
       <div className="relative">
         <ResponsiveContainer width="100%" height={alturaPx}>
           <PieChart>
@@ -133,15 +141,50 @@ export function CategoricalChart({
         </ResponsiveContainer>
         <DonutCenterOverlay total={total} isDark={isDark} paddingBottomPx={28} />
       </div>
+      </TarjetaGrafica>
     )
   }
 
+  const esPromedio = metrica === 'promedio'
+  const inclinar = chartData.length > MAX_ETIQUETAS_RECTAS
+  const etiquetaUnidad = unidad ? formatUnidad(unidad) : ''
+  const formatear = (v: unknown) =>
+    Number(v ?? 0).toLocaleString('es-CO', { maximumFractionDigits: esPromedio ? 2 : 0 })
+
   return (
-    <ResponsiveContainer width="100%" height={alturaPx}>
-      <BarChart data={chartData} margin={{ top: 20, right: 4, left: -24, bottom: 0 }}>
-        <XAxis dataKey="nombre" tick={{ fill: tickColor, fontSize: 10 }} />
-        <YAxis tick={{ fill: tickColor, fontSize: 10 }} allowDecimals={false} />
-        <Tooltip {...tooltipStyle} />
+    <TarjetaGrafica titulo={titulo} className={className}>
+    {controles}
+    <ResponsiveContainer width="100%" height={alturaPx + (inclinar ? 50 : 0)}>
+      <BarChart
+        data={chartData}
+        margin={{ top: 20, right: 8, left: esPromedio ? 0 : -24, bottom: inclinar ? 40 : 0 }}
+      >
+        <XAxis
+          dataKey="nombre"
+          tick={{ fill: tickColor, fontSize: inclinar ? 9 : 10 }}
+          interval={0}
+          angle={inclinar ? -35 : 0}
+          textAnchor={inclinar ? 'end' : 'middle'}
+        />
+        <YAxis
+          tick={{ fill: tickColor, fontSize: 10 }}
+          allowDecimals={esPromedio}
+          domain={esPromedio ? dominioPromedio(chartData.map((d) => d.valor)) : [0, 'auto']}
+          tickFormatter={formatear}
+          label={
+            etiquetaUnidad
+              ? { value: etiquetaUnidad, angle: -90, position: 'insideLeft', fill: tickColor, fontSize: 10 }
+              : undefined
+          }
+        />
+        {esPromedio && <ReferenceLine y={0} stroke={tickColor} strokeOpacity={0.5} />}
+        <Tooltip
+          {...tooltipStyle}
+          formatter={(v) => [
+            `${formatear(v)}${etiquetaUnidad ? ` ${etiquetaUnidad}` : ''}`,
+            esPromedio ? 'Promedio' : 'Registros',
+          ]}
+        />
         <Bar
           dataKey="valor"
           radius={[3, 3, 0, 0]}
@@ -159,12 +202,24 @@ export function CategoricalChart({
             dataKey="valor"
             position="top"
             style={{ fontSize: 10, fill: tickColor }}
-            formatter={(v: unknown) => Number(v ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 1 })}
+            formatter={formatear}
           />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </TarjetaGrafica>
   )
+}
+
+/**
+ * Eje y de un promedio: incluye siempre el 0 (los flujos pueden ser negativos)
+ * y deja un margen del 15 % para que las etiquetas no queden pegadas al borde.
+ */
+function dominioPromedio(valores: number[]): [number, number] {
+  const minimo = Math.min(0, ...valores)
+  const maximo = Math.max(0, ...valores)
+  const margen = (maximo - minimo || 1) * 0.15
+  return [minimo < 0 ? minimo - margen : 0, maximo > 0 ? maximo + margen : 0]
 }
 
 /**
