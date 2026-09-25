@@ -6,12 +6,7 @@ import { datosService } from '@/services/datos.service'
 import { downloadFile } from '@/utils/download'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useAppStore } from '@/store/useAppStore'
-import { metodologiaToCategoria } from '@/utils/geoFilters'
-import { CATEGORIA_LABELS } from '@/utils/formatters'
 import { ENTIDAD_MAP } from '@/utils/catalogoModel'
-import { FlujosGraficasPanel } from '@/components/charts/FlujosGraficasPanel'
-import { BiomasaProduccionScatter } from '@/components/charts/BiomasaProduccionScatter'
-import { CosProfundidadChart } from '@/components/charts/CosProfundidadChart'
 import type { SitioFeature, VistaDatos } from '@/types'
 
 interface Props {
@@ -45,11 +40,9 @@ function colorDeModelo(modelo: string): string {
 
 export function SiteDetailPanel({ sitio, onClose }: Props) {
   const token = useAuthStore((s) => s.token)
-  const metodologia = useAppStore((s) => s.metodologia)
   const year = useAppStore((s) => s.filters.year)
   const flujosCondicionLuzId = useAppStore((s) => s.flujosCondicionLuzId)
   const flujosAnalizadorId = useAppStore((s) => s.flujosAnalizadorId)
-  const categoria = useMemo(() => metodologiaToCategoria(metodologia), [metodologia])
   // El store guarda el id del analizador (para /api/geo/resumen-categorico/,
   // que sí filtra por FK), pero el mecanismo genérico de "filtros" de esta
   // tabla hace icontains de texto sobre "Equipo.modelo" -hay que resolver
@@ -60,7 +53,7 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
   )?.nombre
   // Un solo panel con pestañas de sección (Gráficas / Datos detallados) en vez
   // de dos bloques apilados: así el panel no ocupa toda la pantalla.
-  const [activeSection, setActiveSection] = useState<'graficas' | 'datos'>('graficas')
+  const [activeSection, setActiveSection] = useState<'graficas' | 'datos'>('datos')
   const proyectosDelSitio = sitio.properties.proyectos
   const [proyectoId, setProyectoId] = useState<number | null>(proyectosDelSitio[0]?.id ?? null)
   const [activeTab, setActiveTab] = useState(DETALLE_TABS[0].key)
@@ -79,7 +72,7 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
     setFiltrosInput({})
     setFiltros({})
     setOffset(0)
-    setActiveSection('graficas')
+    setActiveSection('datos')
     setExportError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sitio.properties.id])
@@ -203,7 +196,7 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
       <div className="w-full flex items-center justify-between px-4 pt-2 border-b border-border">
         <div className="flex gap-1">
           <button onClick={() => setActiveSection('graficas')} className={sectionTabClass('graficas')}>
-            Gráficas
+            Gráficas <span className="normal-case font-normal text-fg-subtle">(Próximamente)</span>
           </button>
           <button onClick={() => setActiveSection('datos')} className={sectionTabClass('datos')}>
             Datos detallados
@@ -238,11 +231,8 @@ export function SiteDetailPanel({ sitio, onClose }: Props) {
       </div>
 
       {activeSection === 'graficas' && (
-        <div className="overflow-auto px-4 py-4">
-          <p className="text-xs text-fg-muted font-semibold uppercase tracking-wider mb-2">{CATEGORIA_LABELS[categoria]}</p>
-          {categoria === 'flujos' && <FlujosGraficasPanel sitioId={sitioId} proyectoId={proyectoId} />}
-          {categoria === 'biomasa' && <BiomasaProduccionScatter sitioId={sitioId} />}
-          {categoria === 'cos' && <CosProfundidadChart sitioId={sitioId} />}
+        <div className="overflow-auto px-4 py-8 text-center text-sm text-fg-subtle">
+          Esta sección está próximamente disponible.
         </div>
       )}
 
