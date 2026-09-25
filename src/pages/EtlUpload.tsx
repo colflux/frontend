@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { SeccionNav } from '@/components/etl-upload/SeccionNav'
 import { MapeoList } from '@/components/etl-upload/MapeoList'
@@ -67,6 +67,7 @@ function badgeClass(kind: 'tipo' | 'estado') {
 }
 
 export function EtlUpload() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedFuenteId = searchParams.get('fuente')
   const modoCorreccion = searchParams.get('corregir') === '1'
@@ -116,6 +117,23 @@ export function EtlUpload() {
     if (!store.fuenteId) return
     analizar.mutate({ fuenteId: store.fuenteId, archivo: archivo ?? undefined })
   }
+
+  // Si la fuente ya tiene un archivo registrado (se subió/analizó antes),
+  // no tiene sentido pedirle al usuario que vuelva a pasar por la pantalla
+  // de "Analizar archivo" cada vez que reentra -el backend ya sabe leer
+  // ese archivo sin que se lo vuelvan a subir-, así que se dispara el
+  // análisis automáticamente y se salta directo al EDA/mapeo.
+  const autoAnalizadoRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (bloqueada && !modoCorreccion) return
+    if (store.step !== 1 || store.fuenteId == null) return
+    if (!tieneOrigenRegistrado) return
+    if (autoAnalizadoRef.current === store.fuenteId) return
+    if (analizar.isPending) return
+    autoAnalizadoRef.current = store.fuenteId
+    analizar.mutate({ fuenteId: store.fuenteId })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.step, store.fuenteId, tieneOrigenRegistrado, bloqueada, modoCorreccion])
 
   // Cambia qué hoja se está mapeando/analizando -todas las hojas del
   // archivo ya se analizaron en un solo llamado a "Analizar archivo", así
@@ -184,7 +202,14 @@ export function EtlUpload() {
       )
       setResultadoSeccion(`✓ Guardado en base de datos${partes.length ? ' — ' + partes.join(' · ') : ''}`)
 
-      if (!data.completo) {
+      if (data.completo) {
+        // Última sección de la carga: ya no hay nada más que mapear, así
+        // que en vez de dejar al usuario parado en un mensaje de éxito sin
+        // salida, se lo lleva directo a ver los datos que acaba de importar.
+        if (store.fuenteId != null && store.cargaId != null) {
+          navigate(`/etl/datos?fuente=${store.fuenteId}&carga=${store.cargaId}`)
+        }
+      } else {
         const secciones = seccionesDisponibles(store.camposDestino!.grupos)
         const idx = secciones.findIndex((s) => s.orden === ordenGrupo)
         if (idx !== -1 && idx < secciones.length - 1) {

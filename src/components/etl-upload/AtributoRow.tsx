@@ -158,16 +158,30 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
 
   function cambiarHojaSeleccionada(nuevaHoja: string) {
     setHojaSeleccionada(nuevaHoja)
+    if (manualActivo) quitarAtributoManualDeCampo(modelo, campoMeta.nombre)
     if (nuevaHoja === hojaActiva) {
       if (cruzadoActivo) setAtributoCruzado(modelo, campoMeta.nombre, '', '')
       return
     }
     if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
     if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
-    if (manualActivo) quitarAtributoManualDeCampo(modelo, campoMeta.nombre)
     // Sin columna todavía: se completa cuando el usuario elija una en el
     // select de "atributo en fuente de datos", ya filtrado a esta hoja.
     setAtributoCruzado(modelo, campoMeta.nombre, '', '')
+  }
+
+  // "Escribir manual" es un botón aparte -no una opción más del select de
+  // hoja/columna- para no ensuciar esos dropdowns con una entrada que no es
+  // ni una hoja ni una columna.
+  function activarManual() {
+    setHojaSeleccionada(hojaActiva)
+    if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+    if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
+    if (cruzadoActivo) setAtributoCruzado(modelo, campoMeta.nombre, '', '')
+    activarAtributoManualDeCampo(modelo, campoMeta.nombre)
+  }
+  function desactivarManual() {
+    quitarAtributoManualDeCampo(modelo, campoMeta.nombre)
   }
 
   // Otros campos destino que ya usan esta columna — como mapeo principal o
@@ -229,10 +243,19 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
           )}
           <div className="flex flex-col md:flex-row items-stretch gap-3">
             <div className="flex-1 min-w-0 bg-surface border border-border rounded-lg p-3">
-              <p className="text-[10px] font-bold text-fg-muted uppercase tracking-wide mb-1.5">
-                Atributo en fuente de datos
-              </p>
-              {hayVariasHojas && (
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <p className="text-[10px] font-bold text-fg-muted uppercase tracking-wide">
+                  Atributo en fuente de datos
+                </p>
+                <button
+                  type="button"
+                  onClick={manualActivo ? desactivarManual : activarManual}
+                  className="text-[10px] font-bold text-brand-teal-dark dark:text-brand-teal-bright hover:underline whitespace-nowrap"
+                >
+                  {manualActivo ? '↩️ usar una columna' : '✏️ escribir manual'}
+                </button>
+              </div>
+              {!manualActivo && hayVariasHojas && (
                 <select
                   value={hojaSeleccionada}
                   onChange={(e) => cambiarHojaSeleccionada(e.target.value)}
@@ -245,65 +268,58 @@ export function AtributoRow({ modelo, campoMeta, colIdxsMapeados }: Props) {
                   ))}
                 </select>
               )}
-              <select
-                value={enOtraHoja ? cruzadoAttr?.columnaOrigen ?? '' : manualActivo ? '__manual__' : activo ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (enOtraHoja) {
+              {!manualActivo && (
+                <select
+                  value={enOtraHoja ? cruzadoAttr?.columnaOrigen ?? '' : activo ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (enOtraHoja) {
+                      if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+                      if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
+                      setAtributoCruzado(modelo, campoMeta.nombre, hojaSeleccionada, v)
+                      return
+                    }
+                    if (v === '') {
+                      if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+                      if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
+                      return
+                    }
+                    const nuevoIdx = Number(v)
+                    // ¿Esa columna ya es el destino PRINCIPAL de otro campo? Entonces
+                    // no se la quitamos: este campo la reusa como destino extra.
+                    const yaEsPrincipalDeOtro = Boolean(
+                      mapeoSeleccion[nuevoIdx]?.modelo &&
+                        mapeoSeleccion[nuevoIdx]?.campo &&
+                        !(mapeoSeleccion[nuevoIdx].modelo === modelo && mapeoSeleccion[nuevoIdx].campo === campoMeta.nombre)
+                    )
                     if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
+                    if (yaEsPrincipalDeOtro) {
+                      asignarExtraDestino(nuevoIdx, modelo, campoMeta.nombre)
+                      return
+                    }
                     if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
-                    if (manualActivo) quitarAtributoManualDeCampo(modelo, campoMeta.nombre)
-                    setAtributoCruzado(modelo, campoMeta.nombre, hojaSeleccionada, v)
-                    return
-                  }
-                  if (v === '__manual__') {
-                    if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
-                    if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
-                    activarAtributoManualDeCampo(modelo, campoMeta.nombre)
-                    return
-                  }
-                  if (manualActivo) quitarAtributoManualDeCampo(modelo, campoMeta.nombre)
-                  if (v === '') {
-                    if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
-                    if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
-                    return
-                  }
-                  const nuevoIdx = Number(v)
-                  // ¿Esa columna ya es el destino PRINCIPAL de otro campo? Entonces
-                  // no se la quitamos: este campo la reusa como destino extra.
-                  const yaEsPrincipalDeOtro = Boolean(
-                    mapeoSeleccion[nuevoIdx]?.modelo &&
-                      mapeoSeleccion[nuevoIdx]?.campo &&
-                      !(mapeoSeleccion[nuevoIdx].modelo === modelo && mapeoSeleccion[nuevoIdx].campo === campoMeta.nombre)
-                  )
-                  if (colIdxsMapeados.length) reasignarOrigenAtributo(modelo, campoMeta.nombre, null, colIdxsMapeados)
-                  if (yaEsPrincipalDeOtro) {
-                    asignarExtraDestino(nuevoIdx, modelo, campoMeta.nombre)
-                    return
-                  }
-                  if (extraAttr) quitarExtraDestinoDeCampo(modelo, campoMeta.nombre)
-                  reasignarOrigenAtributo(modelo, campoMeta.nombre, nuevoIdx, colIdxsMapeados)
-                }}
-                className="w-full bg-panel border border-border text-fg text-sm font-semibold rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal"
-              >
-                <option value="">— ninguna columna —</option>
-                {!enOtraHoja && <option value="__manual__">✏️ escribir manual</option>}
-                {enOtraHoja
-                  ? columnasHojaSeleccionada.map((c) => (
-                      <option key={c.nombre} value={c.nombre}>
-                        {c.nombre}
-                      </option>
-                    ))
-                  : columnas.map((c, i) => {
-                      const otro = otroDestinoDe(i)
-                      return (
-                        <option key={i} value={i}>
+                    reasignarOrigenAtributo(modelo, campoMeta.nombre, nuevoIdx, colIdxsMapeados)
+                  }}
+                  className="w-full bg-panel border border-border text-fg text-sm font-semibold rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-teal"
+                >
+                  <option value="">— ninguna columna —</option>
+                  {enOtraHoja
+                    ? columnasHojaSeleccionada.map((c) => (
+                        <option key={c.nombre} value={c.nombre}>
                           {c.nombre}
-                          {otro ? ` — también en ${otro}` : ''}
                         </option>
-                      )
-                    })}
-              </select>
+                      ))
+                    : columnas.map((c, i) => {
+                        const otro = otroDestinoDe(i)
+                        return (
+                          <option key={i} value={i}>
+                            {c.nombre}
+                            {otro ? ` — también en ${otro}` : ''}
+                          </option>
+                        )
+                      })}
+                </select>
+              )}
               {enOtraHoja ? (
                 cruzadoAttr?.columnaOrigen && (
                   <div className="text-xs text-fg-muted mt-1.5">
