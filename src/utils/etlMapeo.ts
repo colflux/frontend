@@ -1,4 +1,5 @@
 import type {
+  AtributoCruzado,
   AtributoManual,
   CampoDestino,
   ColumnaOrigen,
@@ -181,7 +182,8 @@ export function construirMapeos(
   mapeoSeleccion: Record<number, MapeoSeleccion>,
   mapeoValores: Record<number, Record<string, string>>,
   atributosManuales: AtributoManual[],
-  extrasDestino: ExtraDestino[] = []
+  extrasDestino: ExtraDestino[] = [],
+  atributosCruzados: AtributoCruzado[] = []
 ): MapeoColumnaPayload[] {
   const manuales: MapeoColumnaPayload[] = atributosManuales
     .filter((a) => a.modelo && a.campo)
@@ -192,6 +194,19 @@ export function construirMapeos(
       transformacion: 'constante',
       valor_constante: a.valor ?? '',
       mapeo_valores: {},
+    }))
+
+  const cruzados: MapeoColumnaPayload[] = atributosCruzados
+    .filter((a) => a.modelo && a.campo && a.hojaOrigen && a.columnaOrigen)
+    .map((a) => ({
+      columna_origen: a.columnaOrigen,
+      hoja_origen: a.hojaOrigen,
+      modelo_destino: a.modelo,
+      campo_destino: a.campo,
+      transformacion: 'directo',
+      mapeo_valores: {},
+      estrategia_nulos: 'dejar_null',
+      valor_relleno_manual: '',
     }))
 
   const principales: MapeoColumnaPayload[] = columnas
@@ -233,7 +248,7 @@ export function construirMapeos(
       tipo_cobertura: e.modelo === 'Cobertura' && e.campo === 'nombre' ? e.tipoCobertura ?? null : null,
     }))
 
-  return manuales.concat(principales, extras)
+  return manuales.concat(cruzados, principales, extras)
 }
 
 // Igual que sugerirMapeo pero contra las opciones (choices) de un campo:

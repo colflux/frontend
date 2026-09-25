@@ -1,8 +1,8 @@
 import type {
   AnalizarFuenteResponse,
   CamposDestinoResponse,
+  EstadoImportacionResponse,
   FkChoicesResponse,
-  ImportarSeccionResponse,
   MapeoColumnaPayload,
   PostMapeoResponse,
   PrevisualizarSeccionResponse,
@@ -77,6 +77,17 @@ export const etlService = {
       body: JSON.stringify({ hoja, mapeos, parcial }),
     }),
 
+  vaciarMapeoHoja: (
+    token: string,
+    fuenteId: number,
+    cargaId: number,
+    hoja: string
+  ): Promise<{ ok: true; borrados: number }> =>
+    fetchJson(
+      `${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/mapeo/?hoja=${encodeURIComponent(hoja)}`,
+      { method: 'DELETE', headers: { Authorization: `Token ${token}` } }
+    ),
+
   previsualizarSeccion: (
     token: string,
     fuenteId: number,
@@ -85,13 +96,25 @@ export const etlService = {
   ): Promise<PrevisualizarSeccionResponse | ValidacionSeccionError> =>
     fetchSeccion(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/previsualizar/`, token, hastaGrupo),
 
-  importarSeccion: (
+  // El guardado corre en un hilo en background del servidor (sin
+  // Celery/worker separado); esta llamada solo lo dispara — devuelve 202 de
+  // inmediato — y `estadoImportacion` se usa para hacer polling del avance.
+  iniciarImportarSeccion: (
     token: string,
     fuenteId: number,
     cargaId: number,
     hastaGrupo: number
-  ): Promise<ImportarSeccionResponse | ValidacionSeccionError> =>
-    fetchSeccion(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/importar/`, token, hastaGrupo),
+  ): Promise<{ job_iniciado: true }> =>
+    fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/importar/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hasta_grupo: hastaGrupo }),
+    }),
+
+  estadoImportacion: (token: string, fuenteId: number, cargaId: number): Promise<EstadoImportacionResponse> =>
+    fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/importar/estado/`, {
+      headers: { Authorization: `Token ${token}` },
+    }),
 
   getRegexSugerido: (fuenteId: number, modelo: string, campo: string): Promise<RegexSugeridoResponse> =>
     fetchJson(
