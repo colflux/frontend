@@ -853,9 +853,18 @@ export interface ChatSource {
   score: number
 }
 
+// Excel que el asistente preparó con los datos consultados (GET /descargas/excel)
+export interface DescargaExcel {
+  archivo: string
+  nombre: string
+  filas: number
+  hojas?: string[]
+}
+
 export interface ChatResponse {
   answer: string
   sources: ChatSource[]
+  descargas?: DescargaExcel[]
 }
 
 export interface ChatMessage {
@@ -866,6 +875,8 @@ export interface ChatMessage {
   error?: boolean
   // Archivo recién subido (clave en el bucket): muestra el botón «Descargar».
   archivo?: string
+  // Excel con los datos consultados: muestra el botón «Descargar Excel».
+  descargas?: DescargaExcel[]
 }
 
 // ── subida de documentos desde el chat (POST {VITE_API_URL}/documentos) ──
