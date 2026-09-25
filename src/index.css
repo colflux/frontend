@@ -69,3 +69,10 @@ body {
 .driver-popover-footer-btn {
   text-shadow: none !important;
 }
+
+/* Una sección del dashboard cuyas gráficas no tienen datos no se muestra:
+   cada gráfica sin datos devuelve null, y si no queda ninguna tarjeta
+   .grafica dentro de la sección, se oculta también su encabezado. */
+.seccion-graficas:not(:has(.grafica)) {
+  display: none;
+}

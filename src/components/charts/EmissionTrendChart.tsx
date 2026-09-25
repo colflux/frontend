@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import {
   LineChart,
   Line,
@@ -11,12 +11,15 @@ import { useSeries } from '@/hooks/useSeries'
 import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
 import { GAS_COLORS, formatUnidad } from '@/utils/formatters'
+import { CargandoGrafica, TarjetaGrafica } from '@/components/charts/TarjetaGrafica'
 
 interface Props {
   sitioId?: number
+  /** Título de la tarjeta; sin datos no se muestra ni la tarjeta. */
+  titulo?: string
 }
 
-export function EmissionTrendChart({ sitioId }: Props = {}) {
+export function EmissionTrendChart({ sitioId, titulo }: Props = {}) {
   const { data: series, isLoading } = useSeries(sitioId != null ? { sitio: sitioId } : {})
   const gas = useAppStore((s) => s.filters.gas)
   const isDark = useThemeStore((s) => s.theme === 'dark')
@@ -27,11 +30,9 @@ export function EmissionTrendChart({ sitioId }: Props = {}) {
     [series]
   )
 
-  const [unidad, setUnidad] = useState<string>('')
+  const [unidadElegido, setUnidad] = useState('')
 
-  useEffect(() => {
-    if (!unidades.includes(unidad)) setUnidad(unidades[0] ?? '')
-  }, [unidades, unidad])
+  const unidad = unidades.includes(unidadElegido) ? unidadElegido : (unidades[0] ?? '')
 
   const data = useMemo(
     () =>
@@ -44,21 +45,16 @@ export function EmissionTrendChart({ sitioId }: Props = {}) {
 
   if (isLoading) {
     return (
-      <div className="h-36 flex items-center justify-center text-fg-subtle text-sm">
-        Cargando tendencia…
-      </div>
+      <TarjetaGrafica titulo={titulo}>
+        <CargandoGrafica />
+      </TarjetaGrafica>
     )
   }
 
-  if (!unidades.length) {
-    return (
-      <div className="h-36 flex items-center justify-center text-fg-subtle text-sm">
-        Sin datos
-      </div>
-    )
-  }
+  if (!unidades.length) return null
 
   return (
+    <TarjetaGrafica titulo={titulo}>
     <div className="flex flex-col gap-2">
       {unidades.length > 1 && (
         <div className="flex gap-1 justify-end">
@@ -100,5 +96,6 @@ export function EmissionTrendChart({ sitioId }: Props = {}) {
         </LineChart>
       </ResponsiveContainer>
     </div>
+    </TarjetaGrafica>
   )
 }

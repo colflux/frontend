@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ComposedChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { useDatosProyecto } from '@/hooks/useDatosProyecto'
 import { useThemeStore } from '@/store/useThemeStore'
@@ -33,17 +33,13 @@ export function FlujoClimaChart({ resultados, isLoading, sitioId, proyectoId }: 
   const tickColor = isDark ? '#94a3b8' : '#64748b'
 
   const gases = useMemo(() => [...new Set(resultados.map((r) => r.gas))].filter(Boolean).sort(), [resultados])
-  const [gas, setGas] = useState('')
-  useEffect(() => {
-    if (!gases.includes(gas)) setGas(gases[0] ?? '')
-  }, [gases, gas])
+  const [gasElegido, setGas] = useState('')
+  const gas = gases.includes(gasElegido) ? gasElegido : (gases[0] ?? '')
 
   const delGas = useMemo(() => resultados.filter((r) => r.gas === gas), [resultados, gas])
   const unidades = useMemo(() => [...new Set(delGas.map((r) => r.unidad))].sort(), [delGas])
-  const [unidad, setUnidad] = useState('')
-  useEffect(() => {
-    if (!unidades.includes(unidad)) setUnidad(unidades[0] ?? '')
-  }, [unidades, unidad])
+  const [unidadElegido, setUnidad] = useState('')
+  const unidad = unidades.includes(unidadElegido) ? unidadElegido : (unidades[0] ?? '')
 
   const [variable, setVariable] = useState(VARIABLES_CLIMA[0].clave)
 

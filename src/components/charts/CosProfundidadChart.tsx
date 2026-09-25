@@ -2,15 +2,18 @@ import { BarChart, Bar, LabelList, XAxis, YAxis, Tooltip, ResponsiveContainer, C
 import { useCosPorProfundidad } from '@/hooks/useCosPorProfundidad'
 import { useAppStore } from '@/store/useAppStore'
 import { useThemeStore } from '@/store/useThemeStore'
+import { CargandoGrafica, TarjetaGrafica } from '@/components/charts/TarjetaGrafica'
 
 // Marrón oscuro→claro para sugerir profundidad creciente del perfil de suelo.
 const PROFUNDIDAD_COLORS = ['#8a5a3c', '#7a4d33', '#6a402a', '#5a3321', '#4a2618', '#3a1a0f']
 
 interface Props {
   sitioId?: number
+  /** Título de la tarjeta; sin datos no se muestra ni la tarjeta. */
+  titulo?: string
 }
 
-export function CosProfundidadChart({ sitioId }: Props = {}) {
+export function CosProfundidadChart({ sitioId, titulo }: Props = {}) {
   const { data, isLoading } = useCosPorProfundidad(sitioId != null ? { sitio: sitioId } : {})
   // "Profundidad de muestra" del recuadro de filtros de COS resalta el rango
   // elegido en vez de recargar datos: el backend ya trae todos los rangos
@@ -23,21 +26,16 @@ export function CosProfundidadChart({ sitioId }: Props = {}) {
 
   if (isLoading) {
     return (
-      <div className="h-48 flex items-center justify-center text-fg-subtle text-sm">
-        Cargando…
-      </div>
+      <TarjetaGrafica titulo={titulo}>
+        <CargandoGrafica />
+      </TarjetaGrafica>
     )
   }
 
-  if (!chartData.length) {
-    return (
-      <div className="h-48 flex items-center justify-center text-fg-subtle text-sm">
-        Sin datos
-      </div>
-    )
-  }
+  if (!chartData.length) return null
 
   return (
+    <TarjetaGrafica titulo={titulo}>
     <ResponsiveContainer width="100%" height={220}>
       {/* Layout vertical: profundidad 0 arriba, como un perfil de suelo. */}
       <BarChart
@@ -84,5 +82,6 @@ export function CosProfundidadChart({ sitioId }: Props = {}) {
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </TarjetaGrafica>
   )
 }

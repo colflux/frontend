@@ -9,9 +9,6 @@ import type {
   DimensionCategorica,
   ResumenCategoricoResponse,
   ResumenCategoricoFilters,
-  Agrupacion,
-  TendenciaInstalacionResponse,
-  ReporteGeoFilters,
 } from '@/types'
 
 const GEO_API_BASE = import.meta.env.VITE_GEO_API_BASE_URL ?? 'http://localhost:8001/api/geo'
@@ -68,19 +65,5 @@ export const geoService = {
     const res = await fetch(url)
     if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
     return res.json() as Promise<ResumenCategoricoResponse>
-  },
-
-  getTendenciaInstalacion: async (
-    params: { agrupar?: Agrupacion } & Omit<ReporteGeoFilters, 'desde' | 'hasta'> = {}
-  ): Promise<TendenciaInstalacionResponse> => {
-    const search = new URLSearchParams()
-    Object.entries(params).forEach(([k, v]) => {
-      if (v != null) search.set(k, String(v))
-    })
-    const query = search.toString()
-    const url = `${GEO_API_BASE}/tendencia-instalacion/${query ? `?${query}` : ''}`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
-    return res.json() as Promise<TendenciaInstalacionResponse>
   },
 }
