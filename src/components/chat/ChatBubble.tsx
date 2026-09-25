@@ -1,4 +1,5 @@
 import { BotonDescarga } from '@/components/chat/BotonDescarga'
+import { BotonExcel } from '@/components/chat/BotonExcel'
 import { ChatSources } from '@/components/chat/ChatSources'
 import { VistaImagen } from '@/components/chat/VistaImagen'
 import type { ChatMessage } from '@/types'
@@ -46,6 +47,13 @@ export function ChatBubble({ message }: Props) {
             <BotonDescarga archivo={message.archivo} />
           </div>
         )}
+        {!isUser && message.descargas?.length ? (
+          <div className="mt-1.5 flex flex-wrap gap-2 text-xs">
+            {message.descargas.map((d) => (
+              <BotonExcel key={d.archivo} descarga={d} />
+            ))}
+          </div>
+        ) : null}
         {!isUser && message.sources?.length ? <ChatSources sources={message.sources} /> : null}
       </div>
     </div>

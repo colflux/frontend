@@ -93,6 +93,14 @@ export const chatService = {
     return cuerpo as CargaDocumentoResponse
   },
 
+  // Enlace temporal (1 hora) al Excel que preparó el asistente; no pide sesión.
+  getEnlaceExcel: async (archivo: string): Promise<string> => {
+    const res = await fetch(`${CHAT_API_BASE}/descargas/excel?archivo=${encodeURIComponent(archivo)}`)
+    const cuerpo = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(typeof cuerpo?.detail === 'string' ? cuerpo.detail : 'No se pudo preparar la descarga.')
+    return (cuerpo as { url: string }).url
+  },
+
   // Enlace temporal (1 hora) para mostrar una imagen subida; no pide sesión.
   getEnlaceImagen: async (archivo: string): Promise<string> => {
     const res = await fetch(`${CHAT_API_BASE}/documentos/imagen?archivo=${encodeURIComponent(archivo)}`)

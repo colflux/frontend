@@ -232,8 +232,8 @@ export function useChat() {
       if (await responderCarga(trimmed)) return
 
       try {
-        const { answer, sources } = await mutation.mutateAsync(trimmed)
-        setMessages((prev) => [...prev, { id: makeId(), role: 'assistant', content: answer, sources }])
+        const { answer, sources, descargas } = await mutation.mutateAsync(trimmed)
+        setMessages((prev) => [...prev, { id: makeId(), role: 'assistant', content: answer, sources, descargas }])
       } catch {
         agregar('assistant', 'No se pudo contactar al asistente. Verifica tu conexión e intenta de nuevo.', true)
       }
