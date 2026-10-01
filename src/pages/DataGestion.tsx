@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+import { Navigate } from 'react-router-dom'
+import { useRolActual } from '@/hooks/useRolActual'
 import { useFuentesDropdown } from '@/hooks/useFuentesDropdown'
 import { useProyectos } from '@/hooks/useProyectoMutations'
 import { ProyectosTable } from '@/components/data/ProyectosTable'
@@ -76,6 +78,7 @@ function StatsBar({ fuentes }: { fuentes: FuenteDatos[] }) {
 }
 
 export function DataGestion() {
+  const { tieneNivel } = useRolActual()
   const { data, isLoading, isError } = useFuentesDropdown()
   const { data: proyectosCompletos } = useProyectos()
   const [proyectoFiltro, setProyectoFiltro] = useState('')
@@ -122,6 +125,8 @@ export function DataGestion() {
       },
     ],
   })
+
+  if (!tieneNivel('reportador')) return <Navigate to="/" replace />
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-5 max-w-[1140px] mx-auto w-full">

@@ -3,6 +3,7 @@ import { useThemeStore } from '@/store/useThemeStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useMe } from '@/hooks/useAuth'
 import { useRolActual } from '@/hooks/useRolActual'
+import type { NivelAcceso } from '@/types'
 import { LoginButton } from '@/components/layout/LoginButton'
 import { UserMenu } from '@/components/layout/UserMenu'
 import logoHorizontal from '@/assets/files/LOGO_FINAL_Horizontal.png'
@@ -15,16 +16,16 @@ const LINKS = [
 
 const WIKI_URL = 'https://colflux.github.io/context/'
 
-const ADMIN_LINKS = [
-  { to: '/data', label: 'Gestión de datos' },
-  { to: '/db', label: 'Modelo de datos' },
-  { to: '/team', label: 'Equipo' },
+const NIVEL_LINKS: { to: string; label: string; minNivel: NivelAcceso }[] = [
+  { to: '/db', label: 'Modelo de datos', minNivel: 'investigador' },
+  { to: '/data', label: 'Gestión de datos', minNivel: 'reportador' },
+  { to: '/team', label: 'Equipo', minNivel: 'admin' },
 ]
 
 export function Navbar() {
   const { theme, toggleTheme } = useThemeStore()
   const usuario = useAuthStore((s) => s.usuario)
-  const { isAdmin, tieneNivel } = useRolActual()
+  const { tieneNivel } = useRolActual()
   useMe()
 
   return (
@@ -86,10 +87,10 @@ export function Navbar() {
             Reportar
           </span>
         )}
-        {isAdmin && (
+        {NIVEL_LINKS.some((link) => tieneNivel(link.minNivel)) && (
           <>
             <span className="w-px h-4 bg-border mx-1" />
-            {ADMIN_LINKS.map((link) => (
+            {NIVEL_LINKS.filter((link) => tieneNivel(link.minNivel)).map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}

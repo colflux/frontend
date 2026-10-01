@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
+import { useRolActual } from '@/hooks/useRolActual'
 import { Card } from '@/components/common/Card'
 import { ErdDiagram } from '@/components/db/ErdDiagram'
 import { EntityExplorer } from '@/components/db/EntityExplorer'
@@ -10,6 +12,7 @@ import { CATALOGO, TOTAL_ENTIDADES } from '@/utils/catalogoModel'
 const primeraEntidad = CATALOGO.grupos[0]?.entidades[0]?.nombre ?? ''
 
 export function DbModelo() {
+  const { tieneNivel } = useRolActual()
   const [erdAbierta, setErdAbierta] = useState<string | null>(null)
   const [catalogoEntidad, setCatalogoEntidad] = useState(primeraEntidad)
 
@@ -53,6 +56,8 @@ export function DbModelo() {
       },
     ],
   })
+
+  if (!tieneNivel('investigador')) return <Navigate to="/" replace />
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-8 max-w-[1140px] mx-auto w-full">
