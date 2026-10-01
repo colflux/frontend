@@ -41,7 +41,7 @@ export function Team() {
     ],
   })
 
-  if (!isAdmin) return <Navigate to="/data" replace />
+  if (!isAdmin) return <Navigate to="/" replace />
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-8 max-w-[1140px] mx-auto w-full">
