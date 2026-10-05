@@ -49,4 +49,6 @@ export const datosService = {
 
   getExportarCargaUrl: (fuenteId: number, cargaId: number): string =>
     `${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/exportar/`,
+
+  getPlantillaVaciaUrl: (): string => `${API_BASE}/etl/plantilla/`,
 }

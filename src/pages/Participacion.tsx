@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { useRolActual } from '@/hooks/useRolActual'
 import { TourButton } from '@/components/common/TourButton'
 import { useOnboardingTour } from '@/hooks/useOnboardingTour'
+import { useAuthStore } from '@/store/useAuthStore'
+import { datosService } from '@/services/datos.service'
+import { downloadFile } from '@/utils/download'
 
 interface Canal {
   icon: string
@@ -32,6 +36,21 @@ const CANALES: Canal[] = [
 
 export function Participacion() {
   const { tieneNivel } = useRolActual()
+  const token = useAuthStore((s) => s.token)
+  const [descargando, setDescargando] = useState(false)
+  const [errorDescarga, setErrorDescarga] = useState<string | null>(null)
+
+  async function handleDescargarPlantilla() {
+    setDescargando(true)
+    setErrorDescarga(null)
+    try {
+      await downloadFile(datosService.getPlantillaVaciaUrl(), token)
+    } catch (err) {
+      setErrorDescarga(err instanceof Error ? err.message : 'No se pudo descargar la plantilla.')
+    } finally {
+      setDescargando(false)
+    }
+  }
 
   const { start: iniciarTour } = useOnboardingTour({
     tourId: 'participacion',
@@ -81,6 +100,28 @@ export function Participacion() {
             )}
           </Card>
         ))}
+
+        <Card className="flex flex-col items-start gap-2">
+          <span className="text-xl" aria-hidden>
+            📥
+          </span>
+          <p className="text-sm font-semibold text-fg">Plantilla de datos</p>
+          <p className="text-xs text-fg-muted">
+            Descarga un Excel vacío con los campos de Flujos, MOM, COS y Biomasa, más el
+            diccionario de datos, para llenarlo y subirlo.
+          </p>
+          <button
+            type="button"
+            onClick={handleDescargarPlantilla}
+            disabled={descargando}
+            className="mt-auto text-xs font-semibold text-brand-teal dark:text-brand-teal-bright hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {descargando ? 'Descargando…' : 'Descargar plantilla →'}
+          </button>
+          {errorDescarga && (
+            <p className="text-xs text-red-600 dark:text-red-400">{errorDescarga}</p>
+          )}
+        </Card>
       </div>
     </div>
   )
