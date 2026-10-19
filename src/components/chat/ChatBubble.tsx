@@ -23,9 +23,9 @@ export function ChatBubble({ message }: Props) {
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[75%] flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className={`max-w-[75%] min-w-0 flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
         <div
-          className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+          className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] ${
             isUser
               ? 'bg-brand-teal text-white rounded-br-sm'
               : message.error
