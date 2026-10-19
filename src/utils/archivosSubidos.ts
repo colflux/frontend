@@ -1,8 +1,8 @@
 // Los archivos subidos desde el chat viven en el bucket bajo esta ruta; las
 // fuentes del chat que empiezan así se pueden descargar.
-export const esArchivoSubido = (fuente: string) => fuente.startsWith('documentos/')
+export const esArchivoSubido = (fuente: string) => (fuente.startsWith('documentos/') || /^telegram\/[^/]+\/fotos\//.test(fuente))
 
-export const esImagenSubida = (fuente: string) => fuente.startsWith('documentos/imagen/')
+export const esImagenSubida = (fuente: string) => (fuente.startsWith('documentos/imagen/') || /^telegram\/[^/]+\/fotos\//.test(fuente))
 
 // documentos/entrevista/2026-09-23-1a2b3c4d-Entrevista-Rosa.pdf → Entrevista-Rosa.pdf
 export const nombreArchivo = (fuente: string) =>
