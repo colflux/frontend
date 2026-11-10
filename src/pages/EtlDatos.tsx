@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { DatosTabs, TABS, type TabDef } from '@/components/etl-datos/DatosTabs'
+import { TorreVariableTabs } from '@/components/etl-datos/TorreVariableTabs'
 import { DatosToolbar } from '@/components/etl-datos/DatosToolbar'
 import { DatosTable } from '@/components/etl-datos/DatosTable'
 import { Paginacion } from '@/components/common/Paginacion'
@@ -15,7 +16,7 @@ import { datosService } from '@/services/datos.service'
 import { downloadFile } from '@/utils/download'
 import { useAuthStore } from '@/store/useAuthStore'
 
-const LIMITE = 200
+const LIMITE = 20
 
 function tabPorId(tabId: string): TabDef {
   return TABS.find((t) => t.id === tabId) ?? TABS[0]
@@ -90,7 +91,7 @@ export function EtlDatos() {
   const filtrosQuery = { vista: tabActual.vista, filtros: state.filtros, offset: state.offset, limite: LIMITE }
   const datosProyectoQuery = useDatosProyecto(proyectoId != null ? proyectoId : null, filtrosQuery)
   const datosCargaQuery = useDatosCarga(fuenteId, cargaId, filtrosQuery)
-  const { data, isLoading, isError, error } = proyectoId != null ? datosProyectoQuery : datosCargaQuery
+  const { data, isLoading, isFetching, isError, error } = proyectoId != null ? datosProyectoQuery : datosCargaQuery
 
   const faltaOrigen = proyectoId == null && (fuenteId == null || cargaId == null)
 
@@ -197,6 +198,14 @@ export function EtlDatos() {
 
       <DatosTabs activeId={state.tabId} onChange={(tabId) => dispatch({ type: 'SET_TAB', tabId })} />
 
+      {tabActual.id === 'torre' && (
+        <TorreVariableTabs
+          value={state.filtros['MuestraTorre.tipo_variable'] ?? ''}
+          onChange={(valor) => dispatch({ type: 'SET_FILTRO', clave: 'MuestraTorre.tipo_variable', valor })}
+          disponibles={data?.facetas ?? []}
+        />
+      )}
+
       <DatosToolbar
         info={total ? `${total} registro${total === 1 ? '' : 's'} · ${columnas.length} columnas` : 'Sin registros'}
         hayFiltrosExtra={hayFiltrosExtra}
@@ -229,7 +238,7 @@ export function EtlDatos() {
       ) : isLoading && !columnas.length ? (
         <div className="text-center text-fg-muted text-sm py-10">Cargando datos…</div>
       ) : (
-        <>
+        <div className={isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           <DatosTable
             columnas={columnas}
             filas={filas}
@@ -248,7 +257,7 @@ export function EtlDatos() {
             onAnterior={() => dispatch({ type: 'SET_OFFSET', offset: Math.max(state.offset - LIMITE, 0) })}
             onSiguiente={() => dispatch({ type: 'SET_OFFSET', offset: state.offset + LIMITE })}
           />
-        </>
+        </div>
       )}
 
       <FuenteDrawer />

@@ -3,6 +3,8 @@ import type {
   CamposDestinoResponse,
   EstadoImportacionResponse,
   FkChoicesResponse,
+  ImportarTorreResponse,
+  MapeoAutomaticoResponse,
   MapeoColumnaPayload,
   PostMapeoResponse,
   PrevisualizarSeccionResponse,
@@ -37,14 +39,42 @@ async function fetchSeccion<T>(url: string, token: string, hastaGrupo: number): 
 }
 
 export const etlService = {
-  analizarFuente: (token: string, fuenteId: number, archivo?: File, hoja?: string): Promise<AnalizarFuenteResponse> => {
+  analizarFuente: (
+    token: string,
+    fuenteId: number,
+    archivo?: File,
+    hoja?: string,
+    headerFila?: number
+  ): Promise<AnalizarFuenteResponse> => {
     let body: FormData | undefined
-    if (archivo || hoja) {
+    if (archivo || hoja || headerFila) {
       body = new FormData()
       if (archivo) body.append('archivo', archivo)
       if (hoja) body.append('hoja', hoja)
+      if (headerFila) body.append('header_fila', String(headerFila))
     }
     return fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/upload/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}` },
+      body,
+    })
+  },
+
+  // Torre EC/Eddypro no pasa por el wizard genérico de mapeo: el archivo
+  // crudo (semihorario, ancho) siempre trae las mismas columnas en el mismo
+  // orden, así que el backend lo agrega a diario, lo aplana a formato largo
+  // e importa directo a MuestraTorre/SubMuestraTorre en una sola llamada
+  // (ver app/api/etl/preprocesamiento_torre.py e importar_torre en views.py).
+  importarTorre: (
+    token: string,
+    fuenteId: number,
+    torreId: number,
+    archivo: File
+  ): Promise<ImportarTorreResponse> => {
+    const body = new FormData()
+    body.append('archivo', archivo)
+    body.append('torre_id', String(torreId))
+    return fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/importar-torre/`, {
       method: 'POST',
       headers: { Authorization: `Token ${token}` },
       body,
@@ -75,6 +105,15 @@ export const etlService = {
       method: 'POST',
       headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ hoja, mapeos, parcial }),
+    }),
+
+  // Sugerencia de mapeo 1:1 cuando el archivo ya trae los encabezados
+  // exactos de la plantilla descargable -ver "Ya tiene el formato de la
+  // plantilla" en FuenteDrawer-: el llamador decide si aplicarla posteando
+  // cada hoja "ok" a postMapeo y disparando la importación.
+  getMapeoAutomatico: (token: string, fuenteId: number, cargaId: number): Promise<MapeoAutomaticoResponse> =>
+    fetchJson(`${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/mapeo-automatico/`, {
+      headers: { Authorization: `Token ${token}` },
     }),
 
   vaciarMapeoHoja: (

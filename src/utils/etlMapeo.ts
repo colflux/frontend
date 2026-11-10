@@ -41,7 +41,7 @@ export const DESCRIPCION_SECCION: Record<string, string> = {
   'Unidad de Muestreo': 'Los puntos o parcelas concretas donde se toman las mediciones dentro de la unidad experimental. Acá defines su nombre y tipo (parcela, transecto, etc).',
   'Detalles de muestreo': 'Atributos específicos según el tipo de unidad de muestreo que definiste en la sección anterior (medidas de la parcela, longitud del transecto, etc).',
   Sitio: 'Datos de ubicación del punto de muestreo (coordenadas, altitud, etc).',
-  Clima: 'Variables climáticas registradas en el sitio (temperatura, precipitación, etc).',
+  'Muestra Ambiental': 'Variables climáticas registradas en el sitio (temperatura, precipitación, etc).',
   'Cobertura y Vegetación': 'Qué tipo de cobertura o vegetación hay en cada unidad de muestreo.',
   'Carbono Orgánico del Suelo (COS)': 'Mediciones de carbono almacenado en el suelo.',
   Biomasa: 'Mediciones de biomasa vegetal (aérea, subterránea, etc).',

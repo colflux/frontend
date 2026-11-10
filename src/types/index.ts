@@ -134,6 +134,7 @@ export type VistaDatos =
   | 'mom'
   | 'cos'
   | 'biomasa'
+  | 'torre'
 
 export interface ColumnaDatos {
   clave: string
@@ -152,6 +153,10 @@ export interface DatosProyectoResponse {
   filas: FilaDatos[]
   vistas: VistaDatos[]
   advertencia?: string
+  // Solo presente en vistas con fila de pestañas por valor (ej. "torre"):
+  // valores que de verdad existen en esta carga para esa columna, no el
+  // catálogo completo de choices del modelo.
+  facetas?: string[]
 }
 
 export interface DatosProyectoFilters {
@@ -475,6 +480,10 @@ export interface AnalizarFuenteResponse {
   carga_id: number
   sheets: string[]
   hoja_activa: string
+  // Fila (1-indexada) de la hoja activa usada como encabezado -null cuando
+  // se usó el default (fila 1)-. Se devuelve para que el frontend pueda
+  // recordar/mostrar el valor confirmado por el usuario tras el reanálisis.
+  header_fila: number | null
   total_filas: number
   columnas: ColumnaOrigen[]
   mapeos: MapeoColumnaPrevio[]
@@ -484,6 +493,14 @@ export interface AnalizarFuenteResponse {
   // el archivo por cada una-. Incluye también la hoja activa (redundante con
   // los campos de arriba, para no forzar al frontend a tratarla distinto).
   hojas: Record<string, HojaAnalizada>
+}
+
+export interface ImportarTorreResponse {
+  carga_id: number
+  variables_importadas: number
+  dias_importados: number
+  fecha_min: string
+  fecha_max: string
 }
 
 export interface ChoiceCampo {
@@ -602,14 +619,33 @@ export interface PostMapeoResponse {
   guardados: number
 }
 
+// Sugerencia de mapeo 1:1 por hoja, cuando el archivo subido ya trae los
+// encabezados exactos de la plantilla descargable (ver "Ya tiene el formato
+// de la plantilla" en FuenteDrawer) — evita pasar por el asistente manual.
+export interface MapeoAutomaticoHoja {
+  ok: boolean
+  mapeos?: MapeoColumnaPayload[]
+  columnas_sin_match?: string[]
+  columnas_ambiguas?: string[]
+}
+
+export interface MapeoAutomaticoResponse {
+  hojas: Record<string, MapeoAutomaticoHoja>
+}
+
 export interface ErrorFila {
   fila: number | null
+  valor?: string | number | null
   tipo: string
   mensaje: string
 }
 
 export interface ColumnaConErrores {
   columna: string
+  modelo_destino?: string
+  campo_destino?: string
+  total?: number
+  ok?: number
   errores: ErrorFila[]
 }
 
@@ -703,10 +739,14 @@ export interface ProyectoResumen {
   nombre: string
 }
 
+export type MetodologiaFuente = 'flujos' | 'cos' | 'biomasa' | 'mom' | ''
+
 export interface FuenteDatos {
   id: number
   nombre: string
   descripcion: string
+  metodologia: MetodologiaFuente
+  metodologia_label: string
   tipo: string
   tipo_label: string
   url: string
@@ -715,6 +755,7 @@ export interface FuenteDatos {
   responsable: string
   responsable_id: number | null
   proyecto: ProyectoResumen | null
+  institucion: Institucion | null
   sitio: null
   fecha_datos: string | null
   notas: string
@@ -739,11 +780,13 @@ export interface IaCargaSubirResponse {
 export interface FuenteDatosPayload {
   nombre: string
   descripcion?: string
+  metodologia?: MetodologiaFuente
   url?: string
   tipo: string
-  estado: string
+  estado?: string
   responsable_id_write?: number | null
   proyecto_id?: number | null
+  institucion_id?: number | null
 }
 
 // ── responsables/reportadores (/api/responsables/, /api/usuarios/) ──

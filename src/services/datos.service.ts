@@ -2,6 +2,24 @@ import type { DatosProyectoFilters, DatosProyectoResponse } from '@/types'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8001/api'
 
+export interface PlantillaAtributo {
+  campo: string
+  tipoDato: string
+  descripcion: string
+  entidadAtributo: string
+  valoresPermitidos: string
+  color: string | null
+}
+
+export interface PlantillaHoja {
+  hoja: string
+  atributos: PlantillaAtributo[]
+}
+
+export interface PlantillaDetalle {
+  hojas: PlantillaHoja[]
+}
+
 export const datosService = {
   getDatosProyecto: async (
     proyectoId: number,
@@ -51,4 +69,13 @@ export const datosService = {
     `${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/exportar/`,
 
   getPlantillaVaciaUrl: (): string => `${API_BASE}/etl/plantilla/`,
+
+  getPlantillaDetalle: async (token?: string | null): Promise<PlantillaDetalle> => {
+    const url = `${API_BASE}/etl/plantilla/detalle/`
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Token ${token}` } : undefined,
+    })
+    if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
+    return res.json() as Promise<PlantillaDetalle>
+  },
 }

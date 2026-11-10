@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { SeccionNav } from '@/components/etl-upload/SeccionNav'
 import { MapeoList } from '@/components/etl-upload/MapeoList'
+import { ErroresValidacion } from '@/components/etl-upload/ErroresValidacion'
 import { AnalisisEDA } from '@/components/etl-upload/AnalisisEDA'
 import { ResumenAnalisis } from '@/components/etl-upload/ResumenAnalisis'
 import { ConfirmModal } from '@/components/etl-upload/ConfirmModal'
@@ -13,12 +14,23 @@ import { useAnalizarFuente } from '@/hooks/useAnalizarFuente'
 import { useGuardarAvance } from '@/hooks/useGuardarAvance'
 import { useImportarSeccion, useVaciarMapeoHoja, esError } from '@/hooks/useSeccionMutations'
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
-import { seccionesDisponibles, seccionBloqueada, SIN_MAPEAR_ORDEN } from '@/utils/etlMapeo'
-import type { ColumnaConErrores, FuenteDatos } from '@/types'
+import { useAuthStore } from '@/store/useAuthStore'
+import { etlService } from '@/services/etl.service'
+import { seccionesDisponibles, seccionesReales, seccionBloqueada, SIN_MAPEAR_ORDEN } from '@/utils/etlMapeo'
+import type { ColumnaConErrores, FuenteDatos, ImportarSeccionResponse, ValidacionSeccionError } from '@/types'
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+type EstadoMapeoAutomatico =
+  | { tipo: 'aplicando' }
+  | { tipo: 'parcial'; mensaje: string }
+  | { tipo: 'error'; mensaje: string }
 
 const SECCIONES_OPCIONALES = [
   'Sitio',
-  'Clima',
+  'Muestra Ambiental',
   'Cobertura y Vegetación',
   'Carbono Orgánico del Suelo (COS)',
   'Biomasa',
@@ -71,6 +83,8 @@ export function EtlUpload() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedFuenteId = searchParams.get('fuente')
   const modoCorreccion = searchParams.get('corregir') === '1'
+  const modoAutoMapeo = searchParams.get('auto') === '1'
+  const token = useAuthStore((s) => s.token)
 
   const { data: dropdownData, isLoading: fuentesLoading } = useFuentesDropdown()
   const store = useEtlUploadStore()
@@ -115,7 +129,10 @@ export function EtlUpload() {
 
   async function handleAnalizar() {
     if (!store.fuenteId) return
-    analizar.mutate({ fuenteId: store.fuenteId, archivo: archivo ?? undefined })
+    analizar.mutate({
+      fuenteId: store.fuenteId,
+      archivo: archivo ?? undefined,
+    })
   }
 
   // Si la fuente ya tiene un archivo registrado (se subió/analizó antes),
@@ -141,6 +158,108 @@ export function EtlUpload() {
   // avance de mapeo de cada hoja por separado.
   function handleCambiarHoja(hoja: string) {
     store.setHojaActiva(hoja)
+  }
+
+  // "Ya tiene el formato de la plantilla" (FuenteDrawer): en vez de pasar
+  // por el asistente manual, se pide la sugerencia 1:1 (`mapeo-automatico`),
+  // se postea el mapeo de cada hoja que matcheó exacto, y se dispara la
+  // importación de todas las secciones de una. Si alguna hoja no matcheó
+  // (`ok: false`), esa hoja queda sin mapear para que el usuario la
+  // complete a mano en el asistente de abajo -no se pierde el trabajo de
+  // las hojas que sí matchearon-.
+  const autoMapeoRef = useRef(false)
+  const [autoMapeo, setAutoMapeo] = useState<EstadoMapeoAutomatico | null>(null)
+
+  async function aplicarMapeoAutomatico(fuenteId: number, cargaId: number) {
+    store.setStep(4)
+    setAutoMapeo({ tipo: 'aplicando' })
+    try {
+      const sugerido = await etlService.getMapeoAutomatico(token ?? '', fuenteId, cargaId)
+      const hojasOk = Object.entries(sugerido.hojas).filter(([, h]) => h.ok)
+      const hojasConProblema = Object.entries(sugerido.hojas).filter(([, h]) => !h.ok)
+
+      if (hojasOk.length === 0) {
+        setAutoMapeo({
+          tipo: 'error',
+          mensaje:
+            'El archivo no coincide exacto con los encabezados de la plantilla de Flujos CO2 — completa el ' +
+            'mapeo manualmente abajo.',
+        })
+        return
+      }
+
+      for (const [hoja, info] of hojasOk) {
+        await etlService.postMapeo(token ?? '', fuenteId, cargaId, hoja, info.mapeos ?? [], false)
+      }
+
+      const secciones = store.camposDestino ? seccionesReales(store.camposDestino.grupos) : []
+      const maxOrden = secciones.length ? Math.max(...secciones.map((s) => s.orden)) : null
+      if (maxOrden == null) {
+        setAutoMapeo({ tipo: 'error', mensaje: 'No se pudieron determinar las secciones a importar.' })
+        return
+      }
+
+      await etlService.iniciarImportarSeccion(token ?? '', fuenteId, cargaId, maxOrden)
+      for (;;) {
+        await sleep(1200)
+        const estado = await etlService.estadoImportacion(token ?? '', fuenteId, cargaId)
+        if (estado.estado === 'completado') {
+          const resultado = estado.resultado as ImportarSeccionResponse | ValidacionSeccionError
+          if (esError(resultado)) {
+            setErrorSeccion({
+              resumen: `✗ ${resultado.resumen.total_errores} error(es) en el mapeo automático — revisa y completa manualmente abajo.`,
+              columnas: resultado.columnas,
+            })
+            setAutoMapeo({ tipo: 'error', mensaje: 'El mapeo automático encontró errores de validación.' })
+            return
+          }
+          secciones.forEach((s) => store.marcarSeccionGuardada(s.orden))
+          if (hojasConProblema.length === 0) {
+            if (store.fuenteId != null && store.cargaId != null) {
+              navigate(`/etl/datos?fuente=${store.fuenteId}&carga=${store.cargaId}`)
+            }
+          } else {
+            store.setHojaActiva(hojasConProblema[0][0])
+            setAutoMapeo({
+              tipo: 'parcial',
+              mensaje:
+                `Se importó automáticamente: ${hojasOk.map(([h]) => `"${h}"`).join(', ')}. ` +
+                `Falta completar a mano: ${hojasConProblema.map(([h]) => `"${h}"`).join(', ')}.`,
+            })
+          }
+          return
+        }
+        if (estado.estado === 'error') {
+          setAutoMapeo({ tipo: 'error', mensaje: estado.mensaje || 'Error al importar automáticamente.' })
+          return
+        }
+      }
+    } catch (err) {
+      setAutoMapeo({
+        tipo: 'error',
+        mensaje: err instanceof Error ? err.message : 'Error al aplicar el mapeo automático.',
+      })
+    }
+  }
+
+  useEffect(() => {
+    if (!modoAutoMapeo) return
+    if (autoMapeoRef.current) return
+    if (store.step < 2 || !store.camposDestino || store.cargaId == null || store.fuenteId == null) return
+    autoMapeoRef.current = true
+    const fuenteId = store.fuenteId
+    const cargaId = store.cargaId
+    queueMicrotask(() => aplicarMapeoAutomatico(fuenteId, cargaId))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modoAutoMapeo, store.step, store.camposDestino, store.cargaId, store.fuenteId])
+
+  // El usuario confirma en qué fila empieza realmente su tabla (alertado por
+  // el exceso de columnas "Unnamed" en el EDA) -se vuelve a pedir el análisis
+  // al backend, releyendo el archivo original de la hoja activa con ese
+  // header, en vez de seguir con la detección automática (fila 1).
+  function handleConfirmarHeader(fila: number) {
+    if (!store.fuenteId) return
+    analizar.mutate({ fuenteId: store.fuenteId, hoja: store.hojaActiva, headerFila: fila })
   }
 
   const errorAnalizar = analizar.isError
@@ -446,11 +565,38 @@ export function EtlUpload() {
           onVolver={() => store.setStep(1)}
           onCambiarHoja={handleCambiarHoja}
           cambiandoHoja={false}
+          onConfirmarHeader={handleConfirmarHeader}
+          confirmandoHeader={analizar.isPending}
         />
       ) : store.step === 3 ? (
         <ResumenAnalisis onEmpezar={() => store.setStep(4)} onVolver={() => store.setStep(2)} />
+      ) : modoAutoMapeo && (autoMapeo === null || autoMapeo.tipo === 'aplicando') ? (
+        <Card title="Cargando con la plantilla">
+          <div className="flex flex-col items-center justify-center py-14 gap-3 text-center">
+            <div className="w-10 h-10 border-4 border-brand-teal border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-semibold text-fg">
+              Mapeando columnas y subiendo los datos a la base de datos…
+            </p>
+            <p className="text-xs text-fg-muted max-w-sm">
+              El archivo trae los encabezados exactos de la plantilla, así que no hace falta pasar por el asistente
+              manual de columnas. Esto puede tardar unos segundos según el tamaño del archivo.
+            </p>
+          </div>
+        </Card>
       ) : (
         <>
+          {autoMapeo?.tipo === 'parcial' && (
+            <div className="mb-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-500 rounded-md px-3.5 py-3">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-400">⚠ Mapeo automático parcial</p>
+              <p className="text-xs text-fg-muted mt-1">{autoMapeo.mensaje}</p>
+            </div>
+          )}
+          {autoMapeo?.tipo === 'error' && (
+            <div className="mb-3 bg-red-50 dark:bg-red-950/30 border border-red-500 rounded-md px-3.5 py-3">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400">✗ No se pudo mapear automático</p>
+              <p className="text-xs text-fg-muted mt-1">{autoMapeo.mensaje}</p>
+            </div>
+          )}
           <p className="text-sm text-fg-muted mb-1">
             Avanza sección por sección: cada una agrupa las entidades que dependen de las anteriores. Asigna el
             destino de cada columna en el panel <strong>Sin mapear</strong>; una vez asignada, pasa a su sección.
@@ -599,29 +745,14 @@ export function EtlUpload() {
               {resultadoSeccion && <span className="text-sm text-fg-muted basis-full">{resultadoSeccion}</span>}
               {errorSeccion && (
                 <div className="basis-full border border-red-500 rounded-lg p-3">
-                  <p className="text-sm font-semibold text-red-600 dark:text-red-400">{errorSeccion.resumen}</p>
+                  <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">{errorSeccion.resumen}</p>
+                  <ErroresValidacion columnas={errorSeccion.columnas} grupos={store.camposDestino?.grupos} />
                   {errorSeccion.columnas.some((c) => c.errores?.length) && (
-                    <>
-                      <ul className="mt-1.5 flex flex-col gap-1">
-                        {errorSeccion.columnas
-                          .filter((c) => c.errores?.length)
-                          .map((c) => (
-                            <li key={c.columna} className="text-xs text-fg-muted">
-                              <span className="font-semibold text-fg">{c.columna}</span>
-                              {' — '}
-                              {c.errores.length} error{c.errores.length === 1 ? '' : 'es'}
-                              {c.errores[0] && (
-                                <> (ej.: fila {c.errores[0].fila ?? '?'}: {c.errores[0].mensaje || c.errores[0].tipo})</>
-                              )}
-                            </li>
-                          ))}
-                      </ul>
-                      <p className="text-xs text-fg-muted mt-2">
-                        Corrige el mapeo de esas columnas — cada una tiene un botón{' '}
-                        <span className="font-semibold text-amber-700 dark:text-amber-400">🔍 Revisar</span> con el
-                        detalle completo — y vuelve a darle "Validar y guardar".
-                      </p>
-                    </>
+                    <p className="text-xs text-fg-muted mt-2">
+                      Corrige el mapeo de esas columnas — cada una tiene un botón{' '}
+                      <span className="font-semibold text-amber-700 dark:text-amber-400">🔍 Revisar</span> con el
+                      detalle completo — y vuelve a darle "Validar y guardar".
+                    </p>
                   )}
                 </div>
               )}

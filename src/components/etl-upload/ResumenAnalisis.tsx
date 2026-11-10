@@ -4,7 +4,7 @@ import { DESCRIPCION_SECCION, seccionesReales } from '@/utils/etlMapeo'
 
 const SECCIONES_OPCIONALES = [
   'Sitio',
-  'Clima',
+  'Muestra Ambiental',
   'Cobertura y Vegetación',
   'Carbono Orgánico del Suelo (COS)',
   'Biomasa',
