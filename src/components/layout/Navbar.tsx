@@ -17,7 +17,6 @@ const LINKS = [
 const WIKI_URL = 'https://colflux.github.io/context/'
 
 const NIVEL_LINKS: { to: string; label: string; minNivel: NivelAcceso }[] = [
-  { to: '/db', label: 'Modelo de datos', minNivel: 'investigador' },
   { to: '/data', label: 'Gestión de datos', minNivel: 'reportador' },
   { to: '/team', label: 'Equipo', minNivel: 'admin' },
 ]
@@ -66,27 +65,18 @@ export function Navbar() {
         >
           Wiki
         </a>
-        {tieneNivel('reportador') ? (
-          <NavLink
-            to="/reportar"
-            className={({ isActive }) =>
-              `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                isActive
-                  ? 'text-brand-teal bg-brand-teal/10'
-                  : 'text-fg-muted hover:text-fg hover:bg-surface'
-              }`
-            }
-          >
-            Reportar
-          </NavLink>
-        ) : (
-          <span
-            title="Reportar — disponible desde el nivel reportador"
-            className="px-3 py-1.5 rounded-md text-sm font-medium text-fg-subtle opacity-50 cursor-not-allowed"
-          >
-            Reportar
-          </span>
-        )}
+        <NavLink
+          to="/reportar"
+          className={({ isActive }) =>
+            `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              isActive
+                ? 'text-brand-teal bg-brand-teal/10'
+                : 'text-fg-muted hover:text-fg hover:bg-surface'
+            }`
+          }
+        >
+          Reportar
+        </NavLink>
         {NIVEL_LINKS.some((link) => tieneNivel(link.minNivel)) && (
           <>
             <span className="w-px h-4 bg-border mx-1" />

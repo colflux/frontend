@@ -1,7 +1,7 @@
 export interface TabDef {
   id: string
   label: string
-  vista: 'submuestra_gei' | 'unidad_muestreo' | 'clima' | 'mom' | 'cos' | 'biomasa'
+  vista: 'submuestra_gei' | 'unidad_muestreo' | 'clima' | 'mom' | 'cos' | 'biomasa' | 'torre'
   gas: 'CO2' | 'CH4' | null
 }
 
@@ -16,6 +16,7 @@ export const TABS: TabDef[] = [
   { id: 'mom', label: 'MOM', vista: 'mom', gas: null },
   { id: 'cos', label: 'COS', vista: 'cos', gas: null },
   { id: 'biomasa', label: 'Biomasa', vista: 'biomasa', gas: null },
+  { id: 'torre', label: 'Torre EC', vista: 'torre', gas: null },
 ]
 
 interface Props {

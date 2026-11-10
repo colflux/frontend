@@ -11,8 +11,18 @@ export function useAnalizarFuente() {
   const token = useAuthStore((s) => s.token)
 
   return useMutation({
-    mutationFn: async ({ fuenteId, archivo, hoja }: { fuenteId: number; archivo?: File; hoja?: string }) => {
-      const analisis = await etlService.analizarFuente(token ?? '', fuenteId, archivo, hoja)
+    mutationFn: async ({
+      fuenteId,
+      archivo,
+      hoja,
+      headerFila,
+    }: {
+      fuenteId: number
+      archivo?: File
+      hoja?: string
+      headerFila?: number
+    }) => {
+      const analisis = await etlService.analizarFuente(token ?? '', fuenteId, archivo, hoja, headerFila)
       const camposDestino = await etlService.getCamposDestino(fuenteId)
       return { analisis, camposDestino }
     },

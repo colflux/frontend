@@ -1,12 +1,25 @@
+import { useState } from 'react'
 import { Card } from '@/components/common/Card'
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
 import type { EdaColumna } from '@/types'
+
+const LIMITE_ATRIBUTOS = 5
+// A partir de cuántas columnas "Unnamed: N" (pandas no les encontró nombre
+// en la fila que tomó como encabezado) se alerta al usuario de que
+// probablemente el header real está más abajo -p. ej. el Excel trae filas
+// de título/logo antes de la tabla-.
+const UMBRAL_UNNAMED = 5
 
 interface Props {
   onContinuar: () => void
   onVolver: () => void
   onCambiarHoja: (hoja: string) => void
   cambiandoHoja: boolean
+  // Se dispara cuando el usuario confirma en qué fila (1-indexada, tal como
+  // la ve en Excel) empieza realmente su tabla -vuelve a analizar la hoja
+  // activa del archivo original con ese header-.
+  onConfirmarHeader: (fila: number) => void
+  confirmandoHeader: boolean
 }
 
 function formatNumero(n: number | string | null): string {
@@ -62,34 +75,130 @@ function FilaColumna({ col }: { col: EdaColumna }) {
 }
 
 function TablaColumnas({ columnas }: { columnas: EdaColumna[] }) {
+  const [mostrarTodas, setMostrarTodas] = useState(false)
+  const hayMas = columnas.length > LIMITE_ATRIBUTOS
+  const columnasVisibles = mostrarTodas ? columnas : columnas.slice(0, LIMITE_ATRIBUTOS)
+
   return (
-    <div className="overflow-x-auto border border-border rounded-lg">
-      <table className="w-full text-xs border-collapse">
-        <thead>
-          <tr className="bg-surface">
-            <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Atributo</th>
-            <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Tipo</th>
-            <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">% Nulos</th>
-            <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Valores únicos</th>
-            <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Variabilidad</th>
-            <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Valores más frecuentes</th>
-            <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Notas adicionales</th>
-          </tr>
-        </thead>
-        <tbody>
-          {columnas.map((col, idx) => (
-            <FilaColumna key={`${col.hoja ?? ''}-${col.nombre}-${idx}`} col={col} />
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div className="overflow-x-auto border border-border rounded-lg">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="bg-surface">
+              <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Atributo</th>
+              <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Tipo</th>
+              <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">% Nulos</th>
+              <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Valores únicos</th>
+              <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Variabilidad</th>
+              <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Valores más frecuentes</th>
+              <th className="px-2.5 py-1.5 text-left font-bold text-fg-muted">Notas adicionales</th>
+            </tr>
+          </thead>
+          <tbody>
+            {columnasVisibles.map((col, idx) => (
+              <FilaColumna key={`${col.hoja ?? ''}-${col.nombre}-${idx}`} col={col} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {hayMas && (
+        <button
+          type="button"
+          onClick={() => setMostrarTodas((v) => !v)}
+          className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+        >
+          {mostrarTodas ? 'Ver menos' : `Ver los ${columnas.length - LIMITE_ATRIBUTOS} atributos restantes`}
+        </button>
+      )}
     </div>
   )
 }
 
-export function AnalisisEDA({ onContinuar, onVolver, onCambiarHoja, cambiandoHoja }: Props) {
+function AlertaHeaderIncorrecto({
+  cantidadUnnamed,
+  onConfirmar,
+  confirmando,
+  onDescartar,
+}: {
+  cantidadUnnamed: number
+  onConfirmar: (fila: number) => void
+  confirmando: boolean
+  onDescartar: () => void
+}) {
+  const [fila, setFila] = useState('')
+  const filaNum = Number(fila)
+  const filaValida = fila.trim() !== '' && Number.isInteger(filaNum) && filaNum >= 1
+
+  return (
+    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-md px-3.5 py-3 flex flex-col gap-2.5">
+      <p className="text-sm text-amber-900 dark:text-amber-200">
+        ⚠ Se encuentran muchos datos vacíos ({cantidadUnnamed} columnas sin nombre) — por favor confirme en qué fila
+        comienza su tabla (encabezado).
+      </p>
+      <form
+        className="flex items-center gap-2 flex-wrap"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (filaValida) onConfirmar(filaNum)
+        }}
+      >
+        <label className="text-xs font-semibold text-amber-900 dark:text-amber-200" htmlFor="header-fila-input">
+          Fila donde empieza el encabezado:
+        </label>
+        <input
+          id="header-fila-input"
+          type="number"
+          min={1}
+          step={1}
+          value={fila}
+          onChange={(e) => setFila(e.target.value)}
+          disabled={confirmando}
+          className="w-20 text-sm px-2 py-1 rounded-md border border-amber-300 dark:border-amber-700 bg-surface text-fg"
+        />
+        <button
+          type="submit"
+          disabled={!filaValida || confirmando}
+          className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded-md transition-colors"
+        >
+          {confirmando ? 'Aplicando…' : 'Confirmar y volver a analizar'}
+        </button>
+        <button
+          type="button"
+          onClick={onDescartar}
+          disabled={confirmando}
+          className="text-xs font-semibold text-amber-900 dark:text-amber-200 hover:underline disabled:opacity-50"
+        >
+          Ignorar
+        </button>
+      </form>
+    </div>
+  )
+}
+
+export function AnalisisEDA({
+  onContinuar,
+  onVolver,
+  onCambiarHoja,
+  cambiandoHoja,
+  onConfirmarHeader,
+  confirmandoHeader,
+}: Props) {
   const eda = useEtlUploadStore((s) => s.edaResultado)
   const sheets = useEtlUploadStore((s) => s.sheets)
   const hojaActiva = useEtlUploadStore((s) => s.hojaActiva)
+  const [alertaDescartada, setAlertaDescartada] = useState(false)
+  // Si el usuario cambia de hoja o vuelve a analizar (nuevo header
+  // confirmado), la alerta debe reevaluarse para esa hoja/lectura nueva —
+  // se resetea ajustando el estado en el render (patrón recomendado por
+  // React en vez de un useEffect) comparando contra la última hoja/eda vistos.
+  const [ultimaClaveAlerta, setUltimaClaveAlerta] = useState<{ hoja: string; eda: typeof eda }>({
+    hoja: hojaActiva,
+    eda,
+  })
+  if (ultimaClaveAlerta.hoja !== hojaActiva || ultimaClaveAlerta.eda !== eda) {
+    setUltimaClaveAlerta({ hoja: hojaActiva, eda })
+    setAlertaDescartada(false)
+  }
 
   if (!eda) return null
 
@@ -97,6 +206,8 @@ export function AnalisisEDA({ onContinuar, onVolver, onCambiarHoja, cambiandoHoj
   const columnasHojaActiva: EdaColumna[] = mostrarHoja
     ? eda.columnas.filter((c) => (hojaActiva ? c.hoja === hojaActiva : !c.hoja))
     : eda.columnas
+  const cantidadUnnamed = columnasHojaActiva.filter((c) => c.nombre.toLowerCase().startsWith('unnamed')).length
+  const mostrarAlertaHeader = cantidadUnnamed > UMBRAL_UNNAMED && !alertaDescartada
   const hayDuplicados = eda.filas_duplicadas > 0
   const hayColumnasConNulos = eda.columnas_con_muchos_nulos.length > 0
   const hayColumnasConOutliers = eda.columnas_con_outliers.length > 0
@@ -126,6 +237,15 @@ export function AnalisisEDA({ onContinuar, onVolver, onCambiarHoja, cambiandoHoj
             )}
           </p>
         </div>
+
+        {mostrarAlertaHeader && (
+          <AlertaHeaderIncorrecto
+            cantidadUnnamed={cantidadUnnamed}
+            onConfirmar={onConfirmarHeader}
+            confirmando={confirmandoHeader}
+            onDescartar={() => setAlertaDescartada(true)}
+          />
+        )}
 
         {mostrarHoja && sheets.some((h) => !h.toLowerCase().includes('diccionario')) && (
           <div>
