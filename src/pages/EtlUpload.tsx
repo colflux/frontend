@@ -16,7 +16,7 @@ import { useImportarSeccion, useVaciarMapeoHoja, esError } from '@/hooks/useSecc
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { etlService } from '@/services/etl.service'
-import { seccionesDisponibles, seccionesReales, seccionBloqueada, SIN_MAPEAR_ORDEN } from '@/utils/etlMapeo'
+import { esArchivoFlujosCO2, seccionesDisponibles, seccionesReales, seccionBloqueada, SIN_MAPEAR_ORDEN } from '@/utils/etlMapeo'
 import type { ColumnaConErrores, FuenteDatos, ImportarSeccionResponse, ValidacionSeccionError } from '@/types'
 
 function sleep(ms: number) {
@@ -249,9 +249,18 @@ export function EtlUpload() {
     autoMapeoRef.current = true
     const fuenteId = store.fuenteId
     const cargaId = store.cargaId
+    // Flujos CO2 ya tiene su propio camino (la vista tipo Excel bronce, ver
+    // EtlUploadBronce.tsx y tasks/inprogress/rediseno-carga-flujos-co2-staging-bronce.md
+    // en el repo `context`): "Ya tiene el formato de la plantilla" no debe
+    // caer en el mapeo automático clásico -que es todo-o-nada por hoja y
+    // termina en el asistente manual apenas una columna no matchea exacto-.
+    if (esArchivoFlujosCO2(store.sheets)) {
+      navigate(`/etl/upload-bronce?fuente=${fuenteId}&carga=${cargaId}`)
+      return
+    }
     queueMicrotask(() => aplicarMapeoAutomatico(fuenteId, cargaId))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modoAutoMapeo, store.step, store.camposDestino, store.cargaId, store.fuenteId])
+  }, [modoAutoMapeo, store.step, store.camposDestino, store.cargaId, store.fuenteId, store.sheets])
 
   // El usuario confirma en qué fila empieza realmente su tabla (alertado por
   // el exceso de columnas "Unnamed" en el EDA) -se vuelve a pedir el análisis

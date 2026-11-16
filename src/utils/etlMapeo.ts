@@ -11,6 +11,16 @@ import type {
 } from '@/types'
 export const SIN_MAPEAR_ORDEN = -1
 
+// Nombres exactos de _HOJAS_PLANTILLA para Flujos CO2/CH4 -ver
+// backend/app/api/etl/views.py-: si el archivo ya trae estas hojas, se
+// ofrece la vista tipo Excel (beta, ver EtlUploadBronce.tsx) en vez del
+// asistente manual sección-por-sección.
+export const HOJAS_FLUJOS_CO2 = ['Flujos CO2 - Metadato', 'Flujos CO2 - Dato']
+
+export function esArchivoFlujosCO2(sheets: string[]): boolean {
+  return HOJAS_FLUJOS_CO2.every((h) => sheets.includes(h))
+}
+
 export interface SeccionInfo {
   orden: number
   nombre: string

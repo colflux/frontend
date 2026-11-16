@@ -6,7 +6,12 @@ import { useProyectos } from '@/hooks/useProyectoMutations'
 import { useInstituciones, useCrearInstitucion } from '@/hooks/useUsuarioMutations'
 import { useCrearFuente, useActualizarFuente, useSubirArchivoFuente } from '@/hooks/useFuenteMutations'
 import { useAuthStore } from '@/store/useAuthStore'
+import { etlService } from '@/services/etl.service'
 import type { MetodologiaFuente } from '@/types'
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 const METODOLOGIAS_FUENTE: { key: MetodologiaFuente; label: string }[] = [
   { key: 'flujos', label: 'Flujos (CO2/CH4)' },
@@ -54,6 +59,7 @@ export function FuenteDrawer() {
   const { data: instituciones } = useInstituciones()
   const crearInstitucion = useCrearInstitucion()
   const usuarioActual = useAuthStore((s) => s.usuario)
+  const token = useAuthStore((s) => s.token)
   const crearFuente = useCrearFuente()
   const actualizarFuente = useActualizarFuente()
   const subirArchivo = useSubirArchivoFuente()
@@ -68,6 +74,15 @@ export function FuenteDrawer() {
   const [error, setError] = useState('')
   const [nuevaEntidadAbierta, setNuevaEntidadAbierta] = useState(false)
   const [nuevaEntidadNombre, setNuevaEntidadNombre] = useState('')
+  // Carga a la capa bronce (Flujos CO2, checkbox "Ya tiene el formato de la
+  // plantilla"): en vez de navegar a /etl/upload y mostrar ahí la pantalla
+  // de "Iniciando…" (ver tasks/inprogress/rediseno-carga-flujos-co2-staging-bronce.md
+  // en el repo `context`), el análisis + la carga completa a bronce se
+  // disparan desde este mismo drawer -que se queda abierto mostrando el
+  // avance- y solo se navega a la vista tipo Excel una vez que ya está
+  // lista para mostrarse, sin pantalla de carga intermedia.
+  const [procesandoBronce, setProcesandoBronce] = useState(false)
+  const [mensajeBronce, setMensajeBronce] = useState('')
 
   // Torre EC (Eddypro) no se puede adjuntar acá como archivo crudo: necesita
   // elegir a qué TorreEc corresponde y pasar por el preprocesamiento
@@ -107,6 +122,8 @@ export function FuenteDrawer() {
     setError('')
     setNuevaEntidadAbierta(false)
     setNuevaEntidadNombre('')
+    setProcesandoBronce(false)
+    setMensajeBronce('')
   }, [open, editingFuente, proyectoContextId, metodologiaContext, usuarioActual])
 
   // Al elegir entidad, el desplegable de Proyecto se acota a los proyectos
@@ -138,7 +155,45 @@ export function FuenteDrawer() {
     }
   }
 
-  const guardando = crearFuente.isPending || actualizarFuente.isPending || subirArchivo.isPending
+  const guardando = crearFuente.isPending || actualizarFuente.isPending || subirArchivo.isPending || procesandoBronce
+
+  // Dispara análisis + pipeline bronce completo (poblar → mapear automático
+  // → validar → promover, ver backend/app/api/etl/views.py) sin salir de
+  // este drawer, y recién navega a la vista tipo Excel cuando ya terminó —
+  // así esa página nunca tiene que mostrar su propio "Iniciando…".
+  async function cargarBronceYNavegar(fuenteId: number) {
+    setProcesandoBronce(true)
+    setMensajeBronce('Analizando el archivo…')
+    try {
+      const analisis = await etlService.analizarFuente(token ?? '', fuenteId)
+      const cargaId = analisis.carga_id
+      setMensajeBronce('Cargando a la capa bronce…')
+      try {
+        await etlService.procesarBronce(token ?? '', fuenteId, cargaId)
+      } catch {
+        // Si ya hay un proceso en curso (409), seguimos al polling igual.
+      }
+      for (;;) {
+        await sleep(1200)
+        const estado = await etlService.estadoImportacion(token ?? '', fuenteId, cargaId)
+        setMensajeBronce(estado.mensaje || 'Procesando…')
+        if (estado.estado === 'completado') {
+          setProcesandoBronce(false)
+          closeDrawer()
+          navigate(`/etl/upload-bronce?fuente=${fuenteId}&carga=${cargaId}`)
+          return
+        }
+        if (estado.estado === 'error') {
+          setError(estado.mensaje || 'Error al cargar el archivo a la capa bronce.')
+          setProcesandoBronce(false)
+          return
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al analizar el archivo.')
+      setProcesandoBronce(false)
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -178,8 +233,7 @@ export function FuenteDrawer() {
       }
 
       if (yaTienePlantilla && soportaMapeoAutomatico) {
-        closeDrawer()
-        navigate(`/etl/upload?fuente=${fuente.id}&auto=1`)
+        await cargarBronceYNavegar(fuente.id)
         return
       }
 
@@ -195,7 +249,7 @@ export function FuenteDrawer() {
         className={`fixed inset-0 bg-black/40 z-[200] transition-opacity ${
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
-        onClick={closeDrawer}
+        onClick={procesandoBronce ? undefined : closeDrawer}
       />
       <div
         className={`fixed top-0 right-0 bottom-0 w-[440px] max-w-full bg-panel z-[201] shadow-2xl flex flex-col transition-transform duration-300 ${
@@ -209,12 +263,23 @@ export function FuenteDrawer() {
           <button
             type="button"
             onClick={closeDrawer}
-            className="text-fg-muted hover:text-fg hover:bg-surface rounded-md p-1 text-lg leading-none"
+            disabled={procesandoBronce}
+            className="text-fg-muted hover:text-fg hover:bg-surface rounded-md p-1 text-lg leading-none disabled:opacity-30"
           >
             ✕
           </button>
         </div>
 
+        {procesandoBronce ? (
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center gap-3 text-center">
+            <div className="w-10 h-10 border-4 border-brand-teal border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-semibold text-fg">{mensajeBronce}</p>
+            <p className="text-xs text-fg-muted max-w-xs">
+              Cargando el archivo completo a la capa bronce — cuando termine te llevamos directo a la vista tipo
+              Excel para revisar y corregir.
+            </p>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className={labelClass}>Metodología</label>
@@ -354,8 +419,9 @@ export function FuenteDrawer() {
                     <br />
                     <span className="text-fg-muted">
                       El archivo trae los encabezados exactos de "Descargar plantilla" (Metadato/Dato de Flujos
-                      CO2) — se intenta mapear y subir directo a la base de datos, sin pasar por el asistente
-                      manual de columnas. Si alguna hoja no calza exacto, cae de vuelta al asistente para esa hoja.
+                      CO2) — se carga completo a la capa bronce (todas las filas, válidas o no) y te lleva
+                      directo a la vista tipo Excel para corregir y validar celda por celda, sin pasar por el
+                      asistente manual de columnas.
                     </span>
                   </span>
                 </label>
@@ -376,30 +442,33 @@ export function FuenteDrawer() {
 
           {error && <p className="text-sm font-semibold text-red-500">{error}</p>}
         </form>
+        )}
 
-        <div className="px-6 py-4 border-t border-border flex gap-2.5 items-center">
-          <button
-            type="button"
-            onClick={closeDrawer}
-            className="bg-surface border border-border text-fg-muted hover:text-fg text-sm font-semibold px-4 py-2.5 rounded-md transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={guardando}
-            className="flex-1 bg-brand-teal hover:bg-brand-teal-dark disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-md transition-colors"
-          >
-            {guardando
-              ? 'Guardando…'
-              : esTorre
-                ? 'Continuar →'
-                : editingFuente
-                  ? 'Guardar cambios'
-                  : 'Guardar fuente'}
-          </button>
-        </div>
+        {!procesandoBronce && (
+          <div className="px-6 py-4 border-t border-border flex gap-2.5 items-center">
+            <button
+              type="button"
+              onClick={closeDrawer}
+              className="bg-surface border border-border text-fg-muted hover:text-fg text-sm font-semibold px-4 py-2.5 rounded-md transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={guardando}
+              className="flex-1 bg-brand-teal hover:bg-brand-teal-dark disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-md transition-colors"
+            >
+              {guardando
+                ? 'Guardando…'
+                : esTorre
+                  ? 'Continuar →'
+                  : editingFuente
+                    ? 'Guardar cambios'
+                    : 'Guardar fuente'}
+            </button>
+          </div>
+        )}
       </div>
     </>
   )
