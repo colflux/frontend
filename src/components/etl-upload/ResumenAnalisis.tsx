@@ -1,6 +1,7 @@
+import { Link } from 'react-router-dom'
 import { Card } from '@/components/common/Card'
 import { useEtlUploadStore } from '@/store/useEtlUploadStore'
-import { DESCRIPCION_SECCION, seccionesReales } from '@/utils/etlMapeo'
+import { DESCRIPCION_SECCION, esArchivoFlujosCO2, seccionesReales } from '@/utils/etlMapeo'
 
 const SECCIONES_OPCIONALES = [
   'Sitio',
@@ -18,9 +19,12 @@ interface Props {
 }
 
 export function ResumenAnalisis({ onEmpezar, onVolver }: Props) {
-  const { columnas, mapeoSeleccion, camposDestino, sheets, hojas, hojaActiva, totalFilas } = useEtlUploadStore()
+  const { columnas, mapeoSeleccion, camposDestino, sheets, hojas, hojaActiva, totalFilas, fuenteId, cargaId } =
+    useEtlUploadStore()
 
   if (!camposDestino) return null
+
+  const esFlujosCO2 = esArchivoFlujosCO2(sheets)
 
   // El mapeo sugerido -por nombre de columna- ya se calculó para TODAS las
   // hojas del archivo al analizarlo (no solo la activa) -ver
@@ -158,6 +162,25 @@ export function ResumenAnalisis({ onEmpezar, onVolver }: Props) {
             })}
           </ol>
         </div>
+
+        {esFlujosCO2 && fuenteId != null && cargaId != null && (
+          <div className="bg-brand-teal-light dark:bg-brand-teal/10 border border-brand-teal rounded-md px-3.5 py-3">
+            <p className="text-sm font-semibold text-brand-teal-dark dark:text-brand-teal-bright">
+              ✨ Este archivo ya trae las hojas de la plantilla de Flujos CO2
+            </p>
+            <p className="text-xs text-fg-muted mt-1">
+              Podés usar la vista tipo Excel (beta): carga todas las filas tal cual vienen, mapea automático las
+              columnas que coinciden con la plantilla, y te deja corregir celda por celda sin bloquear el resto —
+              en vez del asistente manual de abajo.
+            </p>
+            <Link
+              to={`/etl/upload-bronce?fuente=${fuenteId}&carga=${cargaId}`}
+              className="inline-block mt-2 bg-brand-teal hover:bg-brand-teal-dark text-white text-sm font-bold px-4 py-2 rounded-md transition-colors"
+            >
+              Usar vista tipo Excel (beta) →
+            </Link>
+          </div>
+        )}
 
         <div className="flex gap-2.5">
           <button

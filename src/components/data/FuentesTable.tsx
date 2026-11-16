@@ -219,6 +219,7 @@ export function FuentesTable({ fuentes, proyectos, proyectoFiltro, onProyectoFil
               pagina.map((f) => {
                 const completa = f.estado === 'completo'
                 const cargaId = f.ultima_carga_importada_id
+                const cargaBronceId = f.carga_bronce_pendiente_id
                 return (
                   <tr key={f.id} className="border-t border-border">
                     <td className="px-3.5 py-2.5">
@@ -257,6 +258,14 @@ export function FuentesTable({ fuentes, proyectos, proyectoFiltro, onProyectoFil
                               🔗
                             </Link>
                           </>
+                        ) : cargaBronceId ? (
+                          <Link
+                            to={`/etl/upload-bronce?fuente=${f.id}&carga=${cargaBronceId}`}
+                            title="Dato recién subido a la capa bronce — aún no pasó por el análisis clásico, solo falta validar/corregir celda por celda"
+                            className="w-8 h-8 flex items-center justify-center rounded-md bg-amber-600 text-white"
+                          >
+                            🥉
+                          </Link>
                         ) : canStartEtl(f) ? (
                           <Link
                             to={`/etl/upload?fuente=${f.id}`}

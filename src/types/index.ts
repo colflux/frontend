@@ -704,6 +704,53 @@ export interface EstadoImportacionResponse {
   resultado?: ImportarSeccionResponse | ValidacionSeccionError | { error: string }
 }
 
+// ── capa bronce/staging (vista tipo Excel, Flujos CO2) — ver
+// tasks/inprogress/rediseno-carga-flujos-co2-staging-bronce.md en el repo
+// `context` ──────────────────────────────────────────────────────────────
+
+export type EstadoFilaBronce = 'pendiente' | 'valido' | 'invalido' | 'promovido'
+
+export interface CeldaBronceValor {
+  valor: string | null
+  error: string | null
+}
+
+export interface FilaBronceDatos {
+  fila_idx: number
+  estado: EstadoFilaBronce
+  celdas: Record<string, CeldaBronceValor>
+}
+
+export interface ListarBronceResponse {
+  hoja: string
+  total: number
+  offset: number
+  limit: number
+  filas: FilaBronceDatos[]
+  errores_por_columna: Record<string, number>
+  columnas_mapeadas: Record<string, { modelo_destino: string; campo_destino: string }>
+}
+
+export interface ValorConteo {
+  valor: string
+  total: number
+}
+
+export interface ValoresColumnaBronceResponse {
+  valores: ValorConteo[]
+}
+
+export interface EditarCeldaBronceResponse {
+  ok: true
+  fila: FilaBronceDatos
+  resumen: {
+    ok: boolean
+    hojas_bloqueadas?: string[]
+    filas_promovidas?: number
+    modelos?: Record<string, number[]>
+  }
+}
+
 // ── mapeo de columnas (/api/fuentes-datos/{id}/carga/{id}/mapeo/) ───
 
 export interface MapeoColumna {
@@ -761,6 +808,7 @@ export interface FuenteDatos {
   notas: string
   created_at: string
   ultima_carga_importada_id: number | null
+  carga_bronce_pendiente_id: number | null
 }
 
 export interface FuentesDropdownResponse {

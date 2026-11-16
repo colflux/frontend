@@ -14,6 +14,7 @@ import { EtlReglaDetalle } from '@/pages/EtlReglaDetalle'
 import { EtlReglaValidacion } from '@/pages/EtlReglaValidacion'
 import { EtlMapeo } from '@/pages/EtlMapeo'
 import { EtlUpload } from '@/pages/EtlUpload'
+import { EtlUploadBronce } from '@/pages/EtlUploadBronce'
 import { EtlUploadTorre } from '@/pages/EtlUploadTorre'
 import { DataGestion } from '@/pages/DataGestion'
 import { Team } from '@/pages/Team'
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/etl/reglas/validacion" element={<EtlReglaValidacion />} />
             <Route path="/etl/mapeo" element={<EtlMapeo />} />
             <Route path="/etl/upload" element={<EtlUpload />} />
+            <Route path="/etl/upload-bronce" element={<EtlUploadBronce />} />
             <Route path="/etl/upload-torre" element={<EtlUploadTorre />} />
             <Route path="/data" element={<DataGestion />} />
             <Route path="/team" element={<Team />} />
