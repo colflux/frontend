@@ -182,7 +182,7 @@ export function EtlUpload() {
         setAutoMapeo({
           tipo: 'error',
           mensaje:
-            'El archivo no coincide exacto con los encabezados de la plantilla de Flujos CO2 — completa el ' +
+            'El archivo no coincide exacto con los encabezados de la plantilla descargable — completa el ' +
             'mapeo manualmente abajo.',
         })
         return

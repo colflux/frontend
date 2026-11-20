@@ -15,7 +15,7 @@ export const SIN_MAPEAR_ORDEN = -1
 // backend/app/api/etl/views.py-: si el archivo ya trae estas hojas, se
 // ofrece la vista tipo Excel (beta, ver EtlUploadBronce.tsx) en vez del
 // asistente manual sección-por-sección.
-export const HOJAS_FLUJOS_CO2 = ['Flujos CO2 - Metadato', 'Flujos CO2 - Dato']
+export const HOJAS_FLUJOS_CO2 = ['Flujos Metadato', 'Flujos Dato']
 
 export function esArchivoFlujosCO2(sheets: string[]): boolean {
   return HOJAS_FLUJOS_CO2.every((h) => sheets.includes(h))

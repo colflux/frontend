@@ -27,11 +27,17 @@ interface Metodologia {
   // Solo CO2/CH4 tiene más de una fuente de dato por ahora (equipo vs. torre).
   // Las demás metodologías no muestran selector de fuente.
   fuentes?: Fuente[]
-  // La plantilla descargable hoy solo cubre Flujos CO2 (ver
-  // backend/app/api/etl/views.py:_HOJAS_PLANTILLA). Las demás metodologías
-  // muestran el botón inactivo hasta tener su propia plantilla — decisión
-  // de equipo, 2026-11-02.
+  // La plantilla descargable (y su "Ver detalle") cubre Flujos CO2, Biomasa,
+  // COS y MOM (ver backend/app/api/etl/views.py:_HOJAS_PLANTILLA, filtrado por
+  // ?metodologia=<key> para que cada tarjeta descargue/muestre solo sus
+  // propias hojas, no las de las demás metodologías — 2026-11-19). Las
+  // metodologías sin plantilla propia todavía muestran el botón inactivo —
+  // decisión de equipo, 2026-11-02.
   plantillaDisponible: boolean
+  // "Subir datos" deshabilitado a propósito para COS/Biomasa/MOM (pedido de
+  // la usuaria, 2026-11-20): la plantilla/mapeo ya están implementados pero
+  // la carga real todavía no se habilita para estas 3 metodologías.
+  subidaDisponible: boolean
 }
 
 const METODOLOGIAS: Metodologia[] = [
@@ -41,6 +47,7 @@ const METODOLOGIAS: Metodologia[] = [
     title: 'Flujos',
     desc: 'Flujos de gases de efecto invernadero (CO2/CH4).',
     plantillaDisponible: true,
+    subidaDisponible: true,
     fuentes: [
       { key: 'equipo', label: 'Equipo (cámaras GEI)' },
       { key: 'torre', label: 'Torre EC' },
@@ -51,21 +58,24 @@ const METODOLOGIAS: Metodologia[] = [
     icon: '🟤',
     title: 'Carbono Orgánico del Suelo (COS)',
     desc: 'Muestras de suelo para estimar carbono orgánico.',
-    plantillaDisponible: false,
+    plantillaDisponible: true,
+    subidaDisponible: false,
   },
   {
     key: 'biomasa',
     icon: '🌳',
     title: 'Biomasa',
     desc: 'Mediciones de biomasa aérea y subterránea.',
-    plantillaDisponible: false,
+    plantillaDisponible: true,
+    subidaDisponible: false,
   },
   {
     key: 'mom',
     icon: '🍂',
     title: 'Materia Orgánica Muerta (MOM)',
     desc: 'Necromasa: hojarasca, madera muerta y mantillo.',
-    plantillaDisponible: false,
+    plantillaDisponible: true,
+    subidaDisponible: false,
   },
 ]
 
@@ -76,13 +86,13 @@ export function Participacion() {
   const [descargando, setDescargando] = useState(false)
   const [errorDescarga, setErrorDescarga] = useState<string | null>(null)
   const [fuenteSeleccionada, setFuenteSeleccionada] = useState<Record<string, string>>({})
-  const [detalleAbierto, setDetalleAbierto] = useState(false)
+  const [detalleMetodologia, setDetalleMetodologia] = useState<Metodologia | null>(null)
 
-  async function handleDescargarPlantilla() {
+  async function handleDescargarPlantilla(metodologiaKey: string) {
     setDescargando(true)
     setErrorDescarga(null)
     try {
-      await downloadFile(datosService.getPlantillaVaciaUrl(), token)
+      await downloadFile(datosService.getPlantillaVaciaUrl(metodologiaKey), token)
     } catch (err) {
       setErrorDescarga(err instanceof Error ? err.message : 'No se pudo descargar la plantilla.')
     } finally {
@@ -173,8 +183,14 @@ export function Participacion() {
                     <div className="flex flex-col gap-2">
                       <button
                         type="button"
-                        disabled={!puedeSubirDatos}
-                        title={!puedeSubirDatos ? 'Subir datos — disponible desde el nivel reportador' : undefined}
+                        disabled={!puedeSubirDatos || !m.subidaDisponible}
+                        title={
+                          !m.subidaDisponible
+                            ? 'Próximamente — la carga de datos para esta metodología todavía no está habilitada.'
+                            : !puedeSubirDatos
+                              ? 'Subir datos — disponible desde el nivel reportador'
+                              : undefined
+                        }
                         onClick={() =>
                           openFuenteDrawer({
                             metodologiaContext: m.key as MetodologiaFuente,
@@ -189,7 +205,7 @@ export function Participacion() {
                         <>
                           <button
                             type="button"
-                            onClick={handleDescargarPlantilla}
+                            onClick={() => handleDescargarPlantilla(m.key)}
                             disabled={!m.plantillaDisponible || descargando}
                             title={!m.plantillaDisponible ? 'Próximamente — falta definir la plantilla de esta metodología.' : undefined}
                             className="flex items-center gap-2 text-xs font-semibold text-brand-teal dark:text-brand-teal-bright hover:underline disabled:opacity-50 disabled:cursor-not-allowed text-left"
@@ -202,7 +218,7 @@ export function Participacion() {
                           {m.plantillaDisponible && (
                             <button
                               type="button"
-                              onClick={() => setDetalleAbierto(true)}
+                              onClick={() => setDetalleMetodologia(m)}
                               className="flex items-center gap-2 text-xs font-semibold text-brand-teal dark:text-brand-teal-bright hover:underline text-left"
                             >
                               📄 Ver detalle de la plantilla →
@@ -220,7 +236,13 @@ export function Participacion() {
 
       <FuenteDrawer />
       <ProyectoDrawer />
-      <PlantillaDetalleModal open={detalleAbierto} onClose={() => setDetalleAbierto(false)} />
+      <PlantillaDetalleModal
+        key={detalleMetodologia?.key}
+        open={detalleMetodologia != null}
+        onClose={() => setDetalleMetodologia(null)}
+        metodologia={detalleMetodologia?.key}
+        titulo={detalleMetodologia ? `Detalle de la plantilla — ${detalleMetodologia.title}` : undefined}
+      />
     </div>
   )
 }

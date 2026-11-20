@@ -91,12 +91,16 @@ export function FuenteDrawer() {
   // para allá.
   const esTorre = metodologia === 'flujos' && fuenteTipoContext === 'torre'
 
-  // El mapeo automático solo existe hoy para la plantilla de Flujos CO2
-  // (única metodología con hojas Metadato/Dato definidas en
-  // `_HOJAS_PLANTILLA`, backend/app/api/etl/views.py) — para las demás
-  // metodologías la casilla no se muestra, el archivo sigue pasando por el
-  // asistente manual de siempre.
-  const soportaMapeoAutomatico = metodologia === 'flujos' && !esTorre
+  // El mapeo automático existe hoy para las metodologías con hojas
+  // Metadato/Dato propias en `_HOJAS_PLANTILLA` (backend/app/api/etl/views.py):
+  // Flujos CO2, Biomasa (2026-11-19), COS (2026-11-19) y MOM (2026-11-19).
+  // Para las demás metodologías la casilla no se muestra, el archivo sigue
+  // pasando por el asistente manual de siempre.
+  const soportaMapeoAutomatico =
+    (metodologia === 'flujos' && !esTorre) ||
+    metodologia === 'biomasa' ||
+    metodologia === 'cos' ||
+    metodologia === 'mom'
 
   useEffect(() => {
     if (!open) return
