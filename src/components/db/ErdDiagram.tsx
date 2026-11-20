@@ -194,7 +194,7 @@ export function ErdDiagram({ abiertas, activa, onToggle }: Props) {
       window.removeEventListener('resize', recompute)
       cancelAnimationFrame(raf1)
     }
-  }, [abiertas])
+  }, [abiertas, activa])
 
   return (
     <div className="rounded-2xl overflow-hidden bg-panel border border-border shadow-lg">
@@ -229,14 +229,16 @@ export function ErdDiagram({ abiertas, activa, onToggle }: Props) {
             {paths.map((p, i) => {
               const resaltada = abiertas.size > 0 && (abiertas.has(p.from) || abiertas.has(p.to))
               const atenuada = abiertas.size > 0 && !resaltada
+              const tocaActiva = activa !== null && abiertas.has(activa) && (p.from === activa || p.to === activa)
+              const color = tocaActiva ? ENTIDAD_MAP[activa]?.color ?? p.color : p.color
               return (
                 <path
                   key={i}
                   d={p.d}
-                  stroke={p.color}
-                  strokeWidth={resaltada ? 2.5 : 1.5}
+                  stroke={color}
+                  strokeWidth={tocaActiva ? 2.5 : resaltada ? 2 : 1.5}
                   fill="none"
-                  opacity={atenuada ? 0.08 : resaltada ? 0.9 : 0.4}
+                  opacity={atenuada ? 0.08 : tocaActiva ? 1 : resaltada ? 0.9 : 0.4}
                   markerEnd="url(#erd-arrow)"
                 />
               )

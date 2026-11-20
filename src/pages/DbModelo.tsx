@@ -18,13 +18,14 @@ export function DbModelo() {
   const [catalogoEntidad, setCatalogoEntidad] = useState(primeraEntidad)
 
   function seleccionarEnErd(nombre: string) {
+    const vaAEstarAbierta = !erdAbiertas.has(nombre)
     setErdAbiertas((actual) => {
       const siguiente = new Set(actual)
-      if (siguiente.has(nombre)) siguiente.delete(nombre)
-      else siguiente.add(nombre)
+      if (vaAEstarAbierta) siguiente.add(nombre)
+      else siguiente.delete(nombre)
       return siguiente
     })
-    setEntidadActiva(nombre)
+    setEntidadActiva(vaAEstarAbierta ? nombre : null)
   }
 
   function seleccionarDesdeExplorador(nombre: string) {
@@ -86,7 +87,7 @@ export function DbModelo() {
             Generado desde <code>catalogo.json</code>. Haz clic en una entidad para ver sus campos.
           </p>
         </div>
-        <ErdDiagram abiertas={erdAbiertas} onToggle={seleccionarEnErd} />
+        <ErdDiagram abiertas={erdAbiertas} activa={entidadActiva} onToggle={seleccionarEnErd} />
       </section>
 
       <section data-tour="dbmodelo-explorador" className="flex flex-col gap-4">
