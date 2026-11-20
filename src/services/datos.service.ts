@@ -68,10 +68,11 @@ export const datosService = {
   getExportarCargaUrl: (fuenteId: number, cargaId: number): string =>
     `${API_BASE}/fuentes-datos/${fuenteId}/carga/${cargaId}/exportar/`,
 
-  getPlantillaVaciaUrl: (): string => `${API_BASE}/etl/plantilla/`,
+  getPlantillaVaciaUrl: (metodologia?: string): string =>
+    `${API_BASE}/etl/plantilla/${metodologia ? `?metodologia=${metodologia}` : ''}`,
 
-  getPlantillaDetalle: async (token?: string | null): Promise<PlantillaDetalle> => {
-    const url = `${API_BASE}/etl/plantilla/detalle/`
+  getPlantillaDetalle: async (token?: string | null, metodologia?: string): Promise<PlantillaDetalle> => {
+    const url = `${API_BASE}/etl/plantilla/detalle/${metodologia ? `?metodologia=${metodologia}` : ''}`
     const res = await fetch(url, {
       headers: token ? { Authorization: `Token ${token}` } : undefined,
     })

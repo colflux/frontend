@@ -16,6 +16,7 @@ import { EtlMapeo } from '@/pages/EtlMapeo'
 import { EtlUpload } from '@/pages/EtlUpload'
 import { EtlUploadBronce } from '@/pages/EtlUploadBronce'
 import { EtlUploadTorre } from '@/pages/EtlUploadTorre'
+import { DbModelo } from '@/pages/DbModelo'
 import { DataGestion } from '@/pages/DataGestion'
 import { Team } from '@/pages/Team'
 import { ResetPassword } from '@/pages/ResetPassword'
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/etl/upload" element={<EtlUpload />} />
             <Route path="/etl/upload-bronce" element={<EtlUploadBronce />} />
             <Route path="/etl/upload-torre" element={<EtlUploadTorre />} />
+            <Route path="/db" element={<DbModelo />} />
             <Route path="/data" element={<DataGestion />} />
             <Route path="/team" element={<Team />} />
             <Route path="/reset-password" element={<ResetPassword />} />

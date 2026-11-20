@@ -17,6 +17,7 @@ const LINKS = [
 const WIKI_URL = 'https://colflux.github.io/context/'
 
 const NIVEL_LINKS: { to: string; label: string; minNivel: NivelAcceso }[] = [
+  { to: '/db', label: 'Modelo de datos', minNivel: 'investigador' },
   { to: '/data', label: 'Gestión de datos', minNivel: 'reportador' },
   { to: '/team', label: 'Equipo', minNivel: 'admin' },
 ]

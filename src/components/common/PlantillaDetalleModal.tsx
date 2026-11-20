@@ -5,6 +5,8 @@ import { useAuthStore } from '@/store/useAuthStore'
 interface Props {
   open: boolean
   onClose: () => void
+  metodologia?: string
+  titulo?: string
 }
 
 const ATRIBUTOS_OBLIGATORIOS = new Set([
@@ -14,7 +16,7 @@ const ATRIBUTOS_OBLIGATORIOS = new Set([
   'SistemaReferencia.nombre',
 ])
 
-export function PlantillaDetalleModal({ open, onClose }: Props) {
+export function PlantillaDetalleModal({ open, onClose, metodologia, titulo }: Props) {
   const token = useAuthStore((s) => s.token)
   const [detalle, setDetalle] = useState<PlantillaDetalle | null>(null)
   const [hojaActiva, setHojaActiva] = useState<string | null>(null)
@@ -24,13 +26,13 @@ export function PlantillaDetalleModal({ open, onClose }: Props) {
   useEffect(() => {
     if (!open || detalle) return
     datosService
-      .getPlantillaDetalle(token)
+      .getPlantillaDetalle(token, metodologia)
       .then((data) => {
         setDetalle(data)
         setHojaActiva(data.hojas[0]?.hoja ?? null)
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'No se pudo cargar el detalle de la plantilla.'))
-  }, [open, detalle, token])
+  }, [open, detalle, metodologia, token])
 
   if (!open) return null
 
@@ -44,7 +46,7 @@ export function PlantillaDetalleModal({ open, onClose }: Props) {
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-base font-bold text-fg">Detalle de la plantilla — Flujos CO2</h3>
+            <h3 className="text-base font-bold text-fg">{titulo ?? 'Detalle de la plantilla'}</h3>
             <p className="text-xs text-fg-muted mt-0.5">
               Qué trae cada hoja de la plantilla descargable: el atributo, su descripción y de qué
               entidad del modelo de datos sale.
