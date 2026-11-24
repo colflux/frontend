@@ -34,9 +34,13 @@ interface Metodologia {
   // metodologías sin plantilla propia todavía muestran el botón inactivo —
   // decisión de equipo, 2026-11-02.
   plantillaDisponible: boolean
-  // "Subir datos" deshabilitado a propósito para COS/Biomasa/MOM (pedido de
-  // la usuaria, 2026-11-20): la plantilla/mapeo ya están implementados pero
-  // la carga real todavía no se habilita para estas 3 metodologías.
+  // "Subir datos": se habilita por metodología solo después de validar la
+  // carga real completa con datos de IDEAM (ver Historial de
+  // plantilla-metadato-dato-<metodologia>.md). Biomasa se habilitó el
+  // 2026-11-23, MOM el 2026-11-24, y COS el 2026-11-24 (tras resolver 3
+  // bugs del motor genérico encontrados en la prueba real: Vereda.codigo_dane
+  // único, identidad de UnidadMuestreo entre hojas Metadato/Dato, y
+  // UnidadMuestreo.nombre sin mapear — ver plantilla-metadato-dato-cos.md).
   subidaDisponible: boolean
 }
 
@@ -59,7 +63,7 @@ const METODOLOGIAS: Metodologia[] = [
     title: 'Carbono Orgánico del Suelo (COS)',
     desc: 'Muestras de suelo para estimar carbono orgánico.',
     plantillaDisponible: true,
-    subidaDisponible: false,
+    subidaDisponible: true,
   },
   {
     key: 'biomasa',
@@ -67,7 +71,7 @@ const METODOLOGIAS: Metodologia[] = [
     title: 'Biomasa',
     desc: 'Mediciones de biomasa aérea y subterránea.',
     plantillaDisponible: true,
-    subidaDisponible: false,
+    subidaDisponible: true,
   },
   {
     key: 'mom',
@@ -75,7 +79,7 @@ const METODOLOGIAS: Metodologia[] = [
     title: 'Materia Orgánica Muerta (MOM)',
     desc: 'Necromasa: hojarasca, madera muerta y mantillo.',
     plantillaDisponible: true,
-    subidaDisponible: false,
+    subidaDisponible: true,
   },
 ]
 

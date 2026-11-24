@@ -422,10 +422,10 @@ export function FuenteDrawer() {
                     <span className="font-bold">Ya tiene el formato de la plantilla</span>
                     <br />
                     <span className="text-fg-muted">
-                      El archivo trae los encabezados exactos de "Descargar plantilla" (Metadato/Dato de Flujos
-                      CO2) — se carga completo a la capa bronce (todas las filas, válidas o no) y te lleva
-                      directo a la vista tipo Excel para corregir y validar celda por celda, sin pasar por el
-                      asistente manual de columnas.
+                      El archivo trae los encabezados exactos de "Descargar plantilla" (hojas Metadato/Dato
+                      de la metodología elegida) — se carga completo a la capa bronce (todas las filas, válidas
+                      o no) y te lleva directo a la vista tipo Excel para corregir y validar celda por celda,
+                      sin pasar por el asistente manual de columnas.
                     </span>
                   </span>
                 </label>
