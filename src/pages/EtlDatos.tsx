@@ -113,7 +113,7 @@ export function EtlDatos() {
       ? datosService.getExportarCargaUrl(fuenteId, cargaId)
       : ''
 
-  const volverHref = fuenteId != null ? `/etl/upload?fuente=${fuenteId}` : '/data'
+  const volverHref = fuenteId != null ? `/etl/upload-bronce?fuente=${fuenteId}` : '/data'
   const volverLabel = fuenteId != null ? '← Volver al ETL' : '← Volver a Gestión de Datos'
 
   const handleDescargar = async () => {

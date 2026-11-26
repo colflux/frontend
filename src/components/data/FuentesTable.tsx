@@ -268,7 +268,7 @@ export function FuentesTable({ fuentes, proyectos, proyectoFiltro, onProyectoFil
                           </Link>
                         ) : canStartEtl(f) ? (
                           <Link
-                            to={`/etl/upload?fuente=${f.id}`}
+                            to={`/etl/upload-bronce?fuente=${f.id}`}
                             title="Iniciar carga"
                             className="w-8 h-8 flex items-center justify-center rounded-md bg-brand-teal text-white"
                           >
