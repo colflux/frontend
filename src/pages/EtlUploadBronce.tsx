@@ -14,16 +14,12 @@ function sleep(ms: number) {
 
 const PAGE_SIZE = 50
 
-// Vista tipo "Excel" de la capa bronce (Flujos CO2, ver
+// Vista tipo "Excel" de la capa bronce (ver
 // tasks/inprogress/rediseno-carga-flujos-co2-staging-bronce.md en el repo
-// `context`): reemplaza, para el archivo que ya trae la plantilla, el
-// asistente manual de mapeo (EtlUpload.tsx paso 4) con una vista editable
-// por hoja. Página independiente (mismo patrón que EtlUploadTorre.tsx) en
-// vez de un branch más dentro de EtlUpload.tsx, para no tocar el wizard
-// existente -que sigue siendo el camino para las demás metodologías, y para
-// Flujos mientras esta vista está en beta-.
+// `context`): único camino de carga para Flujos/Biomasa/COS/MOM (no-torre) —
+// reemplazó al asistente manual de mapeo columna por columna, retirado.
 export function EtlUploadBronce() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const fuenteId = Number(searchParams.get('fuente') || 0) || null
   const cargaId = Number(searchParams.get('carga') || 0) || null
   const token = useAuthStore((s) => s.token)
@@ -36,6 +32,31 @@ export function EtlUploadBronce() {
   const [mensajeProceso, setMensajeProceso] = useState('Iniciando…')
   const [errorProceso, setErrorProceso] = useState<string | null>(null)
   const yaDisparado = useRef(false)
+
+  // Entrada con solo ?fuente= (sin ?carga=): viene de "Iniciar carga" en
+  // Gestión de Datos o del dropdown "Cargar", que ya no pasan por el
+  // asistente manual (EtlUpload.tsx, retirado) para obtener el carga_id.
+  // Se analiza la fuente acá mismo y se agrega ?carga= a la URL para que el
+  // resto del flujo (poblar/mapear/validar/promover bronce) siga igual.
+  const analizandoFuente = useRef(false)
+  useEffect(() => {
+    if (!fuenteId || cargaId || analizandoFuente.current) return
+    analizandoFuente.current = true
+    setMensajeProceso('Analizando el archivo…')
+    etlService
+      .analizarFuente(token ?? '', fuenteId)
+      .then((analisis) => {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('carga', String(analisis.carga_id))
+          return next
+        })
+      })
+      .catch((err) => {
+        setErrorProceso(err instanceof Error ? err.message : 'Error al analizar el archivo.')
+        setProcesando(false)
+      })
+  }, [fuenteId, cargaId, token, setSearchParams])
 
   const [hojaActiva, setHojaActiva] = useState<string | null>(null)
   const [hojas, setHojas] = useState<string[]>([])
@@ -189,15 +210,13 @@ export function EtlUploadBronce() {
           <Link to="/data" className="text-xs font-semibold text-brand-teal hover:underline">
             ← Volver a Gestión de Datos
           </Link>
-          <h1 className="text-xl font-bold text-fg mt-1">Vista tipo Excel — Flujos (beta)</h1>
+          <h1 className="text-xl font-bold text-fg mt-1">Vista tipo Excel</h1>
           {fuenteActual ? (
             <p className="text-sm text-fg-muted mt-1">
               Fuente: <span className="font-semibold text-fg">{fuenteActual.nombre}</span>
             </p>
-          ) : !fuenteId || !cargaId ? (
-            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-              Faltan los parámetros ?fuente= y ?carga= en la URL.
-            </p>
+          ) : !fuenteId ? (
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">Falta el parámetro ?fuente= en la URL.</p>
           ) : null}
         </div>
 

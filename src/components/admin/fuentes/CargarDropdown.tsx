@@ -76,7 +76,7 @@ export function CargarDropdown({
               ) : (
                 <Link
                   key={f.id}
-                  to={`/etl/upload?fuente=${f.id}`}
+                  to={`/etl/upload-bronce?fuente=${f.id}`}
                   onClick={() => setOpen(false)}
                   className="block w-full text-left rounded-md px-2 py-2 text-sm text-fg hover:bg-surface"
                 >

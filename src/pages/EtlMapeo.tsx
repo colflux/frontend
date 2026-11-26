@@ -134,7 +134,7 @@ export function EtlMapeo() {
                 📊 Ver datos cargados
               </Link>
               <Link
-                to={`/etl/upload?fuente=${fuenteId}&corregir=1`}
+                to={`/etl/upload-bronce?fuente=${fuenteId}`}
                 className="bg-surface border border-border text-fg-muted hover:text-fg text-xs font-semibold px-3.5 py-2 rounded-md transition-colors"
               >
                 ✏️ Registrar columnas sin mapear
@@ -172,7 +172,7 @@ export function EtlMapeo() {
                 <p className="text-xs text-fg-muted mt-1">{columnasSinMapear.join(', ')}</p>
               </div>
               <Link
-                to={`/etl/upload?fuente=${fuenteId}&corregir=1`}
+                to={`/etl/upload-bronce?fuente=${fuenteId}`}
                 className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-md transition-colors whitespace-nowrap"
               >
                 Registrar columnas sin mapear →
